@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "484826214342",
+    "project_id": "isro-study-companion-cf08a",
+    "storage_bucket": "isro-study-companion-cf08a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484826214342:android:51f6c094a0ff709cdaccc7",
+        "android_client_info": {
+          "package_name": "in.isrocompanion.isro_study_companion"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "484826214342-56iob28r418edm0v0kl5266hmaqkni85.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBy5MMTOPBzm7cdOkQg2xwDgA1nZmStLWQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "484826214342-56iob28r418edm0v0kl5266hmaqkni85.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -28,8 +28,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyD0NBixQrHb33tZMJrsydnyssNyGKEU0ew',
-    appId: '1:484826214342:android:0d6ce748ef53a1a1f0a1d2',
+    apiKey: 'AIzaSyBy5MMTOPBzm7cdOkQg2xwDgA1nZmStLWQ',
+    appId: '1:484826214342:android:51f6c094a0ff709cdaccc7',
     messagingSenderId: '484826214342',
     projectId: 'isro-study-companion-cf08a',
     storageBucket: 'isro-study-companion-cf08a.firebasestorage.app',

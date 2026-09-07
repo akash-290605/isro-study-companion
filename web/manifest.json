@@ -1,6 +1,6 @@
 {
-    "name": "isro_study_companion",
-    "short_name": "isro_study_companion",
+    "name": "ISRO Study Companion",
+    "short_name": "ISRO Study",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

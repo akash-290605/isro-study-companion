@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'core/constants/app_constants.dart';
 import 'core/routing/app_router.dart';
 import 'core/services/local_storage_service.dart';
@@ -15,7 +16,9 @@ void main() async {
 
   // Attempt Firebase Initialization gracefully
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (_) {
     // If google-services.json or firebase_options is not yet configured,
     // the application operates with complete offline-first functionality.

@@ -1,0 +1,12 @@
+{
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.git/**": false,
+    "**/.dart_tool/**": true,
+    "**/build/**": true
+  },
+  "git.autofetch": false,
+  "git.autorefresh": true,
+  "git.detectSubmodules": false
+}

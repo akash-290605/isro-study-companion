@@ -16,36 +16,10 @@ class StudySessionsRepository extends ChangeNotifier {
   void loadForUser(String userId) {
     _currentUserId = userId;
     _sessions = _storage.getStudySessions(userId);
-    if (_sessions.isEmpty) {
-      // Starter sessions to show initial analytics
-      final now = DateTime.now();
-      _sessions = [
-        StudySessionModel(
-          sessionId: 'session_01',
-          userId: userId,
-          startTime: now.subtract(const Duration(hours: 3)),
-          endTime: now.subtract(const Duration(hours: 1, minutes: 40)),
-          durationSeconds: 4800, // 1h 20m
-          mode: TimerMode.pomodoro,
-          subject: 'Network Theory',
-          topic: 'Network Analysis',
-          subtopic: 'KCL, KVL & Node/Mesh Analysis',
-          device: 'Windows Desktop',
-          date: now,
-        ),
-        StudySessionModel(
-          sessionId: 'session_02',
-          userId: userId,
-          startTime: now.subtract(const Duration(days: 1, hours: 2)),
-          endTime: now.subtract(const Duration(days: 1)),
-          durationSeconds: 7200, // 2h
-          mode: TimerMode.stopwatch,
-          subject: 'Digital Electronics',
-          topic: 'Boolean Algebra & Combinational Circuits',
-          device: 'Web Browser',
-          date: now.subtract(const Duration(days: 1)),
-        ),
-      ];
+    // Purge any inbuilt/starter study sessions
+    final beforeCount = _sessions.length;
+    _sessions.removeWhere((s) => s.sessionId.startsWith('session_'));
+    if (_sessions.length != beforeCount) {
       _storage.saveStudySessions(userId, _sessions);
     }
     notifyListeners();
@@ -128,6 +102,13 @@ class StudySessionsRepository extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    notifyListeners();
+  }
+
+  Future<void> clearAllSessions() async {
+    if (_currentUserId == null) return;
+    _sessions.clear();
+    await _storage.saveStudySessions(_currentUserId!, _sessions);
     notifyListeners();
   }
 }

@@ -267,6 +267,56 @@ class LocalStorageService {
     );
   }
 
+  Future<void> purgeInbuiltData(String uid) async {
+    // Purge starter notes
+    final notes = getNotes(uid)..removeWhere((n) => n.noteId.startsWith('starter_note'));
+    await saveNotes(uid, notes);
+
+    // Purge starter sources
+    final sources = getSources(uid)..removeWhere((s) => s.sourceId.startsWith('starter_doc_'));
+    await saveSources(uid, sources);
+
+    // Purge starter questions
+    final questions = getQuestions(uid)..removeWhere((q) =>
+        q.questionId.startsWith('q_nt_') ||
+        q.questionId.startsWith('q_de_') ||
+        q.sourceId.startsWith('starter_doc_'));
+    await saveQuestions(uid, questions);
+
+    // Purge starter flashcards
+    final cards = getFlashcards(uid)..removeWhere((c) =>
+        c.cardId.startsWith('fc_') ||
+        c.sourceId.startsWith('starter_doc_'));
+    await saveFlashcards(uid, cards);
+
+    // Purge starter formulas
+    final formulas = getFormulas(uid)..removeWhere((f) =>
+        f.formulaId.startsWith('form_') ||
+        f.sourceId.startsWith('starter_doc_'));
+    await saveFormulas(uid, formulas);
+
+    // Purge starter sessions
+    final sessions = getStudySessions(uid)..removeWhere((s) => s.sessionId.startsWith('session_'));
+    await saveStudySessions(uid, sessions);
+
+    // Purge starter revisions
+    final revisions = getRevisions(uid)..removeWhere((r) => r.sessionId.startsWith('rev_'));
+    await saveRevisions(uid, revisions);
+  }
+
+  Future<void> clearAllStudyData(String uid) async {
+    await _prefs.remove(_notesKey(uid));
+    await _prefs.remove(_sourcesKey(uid));
+    await _prefs.remove(_questionsKey(uid));
+    await _prefs.remove(_testsKey(uid));
+    await _prefs.remove(_testResultsKey(uid));
+    await _prefs.remove(_mistakesKey(uid));
+    await _prefs.remove(_flashcardsKey(uid));
+    await _prefs.remove(_formulasKey(uid));
+    await _prefs.remove(_sessionsKey(uid));
+    await _prefs.remove(_revisionsKey(uid));
+  }
+
   Future<void> clearUserData(String uid) async {
     await _prefs.remove(_userKey(uid));
     await _prefs.remove(_syllabusKey(uid));

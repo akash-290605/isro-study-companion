@@ -16,50 +16,10 @@ class NotesRepository extends ChangeNotifier {
   void loadForUser(String userId) {
     _currentUserId = userId;
     _notes = _storage.getNotes(userId);
-    if (_notes.isEmpty) {
-      // Starter notes for Network Theory & Digital Electronics
-      _notes = [
-        NoteModel(
-          noteId: 'starter_note_1',
-          userId: userId,
-          title: 'Kirchhoff\'s Laws & Mesh Analysis',
-          content:
-              r'''Kirchhoff's Current Law (KCL):
-The algebraic sum of currents entering a node is zero.
-$$\sum_{k=1}^n I_k = 0$$
-
-Kirchhoff's Voltage Law (KVL):
-The directed sum of potential differences around any closed loop is zero.
-$$\sum_{k=1}^n V_k = 0$$
-
-Mesh Analysis is applicable only for planar circuits using KVL equations.''',
-          subject: 'Network Theory',
-          topic: 'Network Analysis',
-          subtopic: 'KCL, KVL & Node/Mesh Analysis',
-          tags: ['kcl', 'kvl', 'mesh', 'circuits'],
-          createdAt: DateTime.now().subtract(const Duration(days: 2)),
-          updatedAt: DateTime.now().subtract(const Duration(days: 2)),
-        ),
-        NoteModel(
-          noteId: 'starter_note_2',
-          userId: userId,
-          title: 'Boolean Algebra & De Morgan\'s Theorems',
-          content:
-              r'''De Morgan's First Theorem:
-$$(A + B)' = A' \cdot B'$$
-
-De Morgan's Second Theorem:
-$$(A \cdot B)' = A' + B'$$
-
-Universal Gates: NAND and NOR can realize any Boolean function without using other gate types.''',
-          subject: 'Digital Electronics',
-          topic: 'Boolean Algebra & Combinational Circuits',
-          subtopic: 'K-Maps & Logic Gate Minimization',
-          tags: ['boolean', 'demorgan', 'digital', 'gates'],
-          createdAt: DateTime.now().subtract(const Duration(days: 1)),
-          updatedAt: DateTime.now().subtract(const Duration(days: 1)),
-        ),
-      ];
+    // Purge any inbuilt/starter notes
+    final beforeCount = _notes.length;
+    _notes.removeWhere((n) => n.noteId.startsWith('starter_note'));
+    if (_notes.length != beforeCount) {
       _storage.saveNotes(userId, _notes);
     }
     notifyListeners();
@@ -124,6 +84,13 @@ Universal Gates: NAND and NOR can realize any Boolean function without using oth
         timestamp: DateTime.now(),
       ),
     );
+    notifyListeners();
+  }
+
+  Future<void> clearAllNotes() async {
+    if (_currentUserId == null) return;
+    _notes.clear();
+    await _storage.saveNotes(_currentUserId!, _notes);
     notifyListeners();
   }
 }

@@ -16,18 +16,10 @@ class RevisionRepository extends ChangeNotifier {
   void loadForUser(String userId) {
     _currentUserId = userId;
     _revisions = _storage.getRevisions(userId);
-    if (_revisions.isEmpty) {
-      _revisions = [
-        RevisionSessionModel(
-          sessionId: 'rev_01',
-          userId: userId,
-          title: 'Daily Technical Revision',
-          topicsDue: ['Mesh Analysis', 'Boolean Algebra', 'Thevenin Theorem'],
-          mistakesToReview: ['q_de_02'],
-          flashcardsDue: ['fc_01', 'fc_02'],
-          scheduledDate: DateTime.now(),
-        ),
-      ];
+    // Purge any inbuilt/starter revision sessions
+    final beforeCount = _revisions.length;
+    _revisions.removeWhere((r) => r.sessionId.startsWith('rev_'));
+    if (_revisions.length != beforeCount) {
       _storage.saveRevisions(userId, _revisions);
     }
     notifyListeners();
@@ -90,6 +82,13 @@ class RevisionRepository extends ChangeNotifier {
       );
       notifyListeners();
     }
+  }
+
+  Future<void> clearAllRevisions() async {
+    if (_currentUserId == null) return;
+    _revisions.clear();
+    await _storage.saveRevisions(_currentUserId!, _revisions);
+    notifyListeners();
   }
 }
 

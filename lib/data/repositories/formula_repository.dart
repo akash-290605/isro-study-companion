@@ -16,65 +16,12 @@ class FormulaRepository extends ChangeNotifier {
   void loadForUser(String userId) {
     _currentUserId = userId;
     _formulas = _storage.getFormulas(userId);
-    if (_formulas.isEmpty) {
-      _formulas = [
-        FormulaModel(
-          formulaId: 'form_01',
-          userId: userId,
-          subject: 'Network Theory',
-          topic: 'Network Analysis',
-          title: 'Kirchhoff\'s Current Law (KCL)',
-          latexExpression: r'\sum_{k=1}^{n} I_k = 0',
-          description: 'Sum of algebraic currents entering a junction is zero.',
-          sourceId: 'starter_doc_network_theory',
-          sourceName: 'Network Theory Notes.pdf',
-          sourceLocation: 'Page 1, Mesh Analysis',
-          isFavorite: true,
-          createdAt: DateTime.now().subtract(const Duration(days: 3)),
-        ),
-        FormulaModel(
-          formulaId: 'form_02',
-          userId: userId,
-          subject: 'Network Theory',
-          topic: 'Network Analysis',
-          title: 'Maximum Power Transfer Efficiency',
-          latexExpression: r'\eta = \frac{P_L}{P_{total}} = \frac{I^2 R_L}{I^2 (R_{th} + R_L)} = 50\%',
-          description: 'Occurs when load impedance equals conjugate source impedance.',
-          sourceId: 'starter_doc_network_theory',
-          sourceName: 'Network Theory Notes.pdf',
-          sourceLocation: 'Page 2, Thevenin and Norton Equivalents',
-          isFavorite: true,
-          createdAt: DateTime.now().subtract(const Duration(days: 3)),
-        ),
-        FormulaModel(
-          formulaId: 'form_03',
-          userId: userId,
-          subject: 'Digital Electronics',
-          topic: 'Boolean Algebra & Combinational Circuits',
-          title: 'De Morgan\'s First Law',
-          latexExpression: r'\overline{A + B} = \overline{A} \cdot \overline{B}',
-          description: 'Complement of a sum equals product of individual complements.',
-          sourceId: 'starter_doc_digital_electronics',
-          sourceName: 'Digital Electronics Principles.doc',
-          sourceLocation: 'Page 1, Logic Gates',
-          isFavorite: false,
-          createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        ),
-        FormulaModel(
-          formulaId: 'form_04',
-          userId: userId,
-          subject: 'Digital Electronics',
-          topic: 'Boolean Algebra & Combinational Circuits',
-          title: 'Mod-N Counter Flip-Flop Formula',
-          latexExpression: r'2^{n-1} \le N \le 2^n',
-          description: 'Calculates the minimum flip-flops required for a Mod-N counter.',
-          sourceId: 'starter_doc_digital_electronics',
-          sourceName: 'Digital Electronics Principles.doc',
-          sourceLocation: 'Page 2, Flip-Flops and Counters',
-          isFavorite: true,
-          createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        ),
-      ];
+    // Purge any inbuilt/starter formulas
+    final beforeCount = _formulas.length;
+    _formulas.removeWhere((f) =>
+        f.formulaId.startsWith('form_') ||
+        f.sourceId.startsWith('starter_doc_'));
+    if (_formulas.length != beforeCount) {
       _storage.saveFormulas(userId, _formulas);
     }
     notifyListeners();
@@ -153,6 +100,13 @@ class FormulaRepository extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    notifyListeners();
+  }
+
+  Future<void> clearAllFormulas() async {
+    if (_currentUserId == null) return;
+    _formulas.clear();
+    await _storage.saveFormulas(_currentUserId!, _formulas);
     notifyListeners();
   }
 }

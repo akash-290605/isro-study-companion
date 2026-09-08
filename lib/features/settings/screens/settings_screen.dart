@@ -393,6 +393,149 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                // Data Management & Storage
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.red.shade200),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.cleaning_services_rounded, color: Colors.orange.shade800, size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Data Management & Clean Slate',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Manage your stored study materials, sample content, and test records.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange.shade800,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                              label: const Text('Delete Inbuilt / Sample Data'),
+                              onPressed: () async {
+                                if (user == null) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Delete All Inbuilt Data?'),
+                                    content: const Text(
+                                      'This will remove all pre-loaded starter notes, questions, flashcards, formulas, and mock study sessions from your device.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade800),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Delete Inbuilt Data'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirmed == true && mounted) {
+                                  final storage = ref.read(localStorageServiceProvider);
+                                  await storage.purgeInbuiltData(user.id);
+                                  ref.read(notesRepositoryProvider).loadForUser(user.id);
+                                  ref.read(questionsRepositoryProvider).loadForUser(user.id);
+                                  ref.read(flashcardsRepositoryProvider).loadForUser(user.id);
+                                  ref.read(formulaRepositoryProvider).loadForUser(user.id);
+                                  ref.read(sourcesRepositoryProvider).loadForUser(user.id);
+                                  ref.read(studySessionsRepositoryProvider).loadForUser(user.id);
+                                  ref.read(revisionRepositoryProvider).loadForUser(user.id);
+
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('All inbuilt and sample data has been deleted!'),
+                                      backgroundColor: Color(0xFF10B981),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red.shade700,
+                                side: BorderSide(color: Colors.red.shade300),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('Wipe All Study Data (Clean Slate)'),
+                              onPressed: () async {
+                                if (user == null) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Wipe All Study Data?'),
+                                    content: const Text(
+                                      'This will delete ALL notes, question bank items, test results, mistakes, formulas, and flashcards on this device, leaving a fresh clean slate. Your login will remain active.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Wipe Everything'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirmed == true && mounted) {
+                                  final storage = ref.read(localStorageServiceProvider);
+                                  await storage.clearAllStudyData(user.id);
+                                  ref.read(notesRepositoryProvider).loadForUser(user.id);
+                                  ref.read(questionsRepositoryProvider).loadForUser(user.id);
+                                  ref.read(flashcardsRepositoryProvider).loadForUser(user.id);
+                                  ref.read(formulaRepositoryProvider).loadForUser(user.id);
+                                  ref.read(sourcesRepositoryProvider).loadForUser(user.id);
+                                  ref.read(studySessionsRepositoryProvider).loadForUser(user.id);
+                                  ref.read(revisionRepositoryProvider).loadForUser(user.id);
+
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('All study data wiped clean! Starting fresh.'),
+                                      backgroundColor: Color(0xFF10B981),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // Account Actions: Logout & Delete Account
                 Row(
                   children: [

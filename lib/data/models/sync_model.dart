@@ -1,6 +1,7 @@
 enum SyncStatus {
   synced,
   syncing,
+  localOnly,
   offline;
 
   String get label {
@@ -9,8 +10,10 @@ enum SyncStatus {
         return '✓ Synced';
       case SyncStatus.syncing:
         return '⟳ Syncing...';
+      case SyncStatus.localOnly:
+        return '✓ Saved Locally';
       case SyncStatus.offline:
-        return '⚠ Offline';
+        return 'Offline (Saved)';
     }
   }
 }

@@ -127,7 +127,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(user?.email ?? 'offline@companion.edu'),
+                              Text(user?.email ?? 'aspirant@isro-prep.edu'),
                               const SizedBox(height: 2),
                               Text('User ID: ${user?.id ?? "local"}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                             ],
@@ -365,7 +365,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.sync_rounded, color: Color(0xFF1E3A8A)),
                           title: Text('Current Status: ${syncService.status.label}'),
-                          subtitle: const Text('Offline-first architecture with local dirty queue flushing to Firestore.'),
+                          subtitle: const Text('Offline-first architecture. All progress is securely saved on this device and synchronizes to cloud when connected.'),
                           trailing: OutlinedButton(
                             onPressed: () {
                               syncService.syncPendingData();

@@ -19,27 +19,37 @@ class SyncStatusBadge extends ConsumerWidget {
         color = const Color(0xFF10B981); // Emerald
         icon = Icons.cloud_done_rounded;
         break;
+      case SyncStatus.localOnly:
+        color = const Color(0xFF10B981); // Emerald / Saved
+        icon = Icons.check_circle_outline_rounded;
+        break;
       case SyncStatus.syncing:
         color = const Color(0xFFF59E0B); // Amber
         icon = Icons.sync_rounded;
         break;
       case SyncStatus.offline:
-        color = const Color(0xFF94A3B8); // Slate
+        color = const Color(0xFF64748B); // Slate
         icon = Icons.cloud_off_rounded;
         break;
     }
 
     final isCompact = MediaQuery.of(context).size.width < 500;
+    final tooltipMessage = status == SyncStatus.localOnly
+        ? 'Offline-ready: All notes, formulas, and progress are saved on this device.'
+        : 'Sync status: ${status.label}';
 
     return Tooltip(
-      message: 'Sync status: ${status.label}',
+      message: tooltipMessage,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () {
           syncService.syncPendingData();
+          final snackMsg = status == SyncStatus.localOnly
+              ? '✓ All changes are securely saved locally on this device.'
+              : 'Sync status: ${status.label}. Checking cloud updates...';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Sync status: ${status.label}. Checking cloud updates...'),
+              content: Text(snackMsg),
               duration: const Duration(seconds: 2),
             ),
           );

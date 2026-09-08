@@ -95,6 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authRepositoryProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Center(
@@ -105,7 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Card(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade300),
+                side: BorderSide(color: Theme.of(context).dividerColor),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -115,34 +116,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // ISRO Badge & Header
+                      // App Logo & Header
                       Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          width: 84,
+                          height: 84,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0F1E36), Color(0xFF1E3A8A)],
-                            ),
-                            borderRadius: BorderRadius.circular(8),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                blurRadius: 18,
+                                spreadRadius: 2,
+                              ),
+                            ],
                           ),
-                          child: const Text(
-                            'ISRO COMPANION',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              letterSpacing: 1.5,
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/images/app_logo.png',
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'Sign In to Your Account',
+                        'ISRO STUDY COMPANION',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -151,7 +155,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -160,9 +164,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.red.shade50,
+                            color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade200),
+                            border: Border.all(
+                              color: isDark ? Colors.red.shade700 : Colors.red.shade200,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -171,7 +177,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Expanded(
                                 child: Text(
                                   _errorMessage!,
-                                  style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+                                  style: TextStyle(
+                                    color: isDark ? Colors.red.shade200 : Colors.red.shade800,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             ],

@@ -98,8 +98,42 @@ class SyllabusRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> addCustomSubject(String subjectName) async {
+    if (_currentUserId == null || subjectName.trim().isEmpty) return;
+    final newSubject = SyllabusSubject(
+      id: const Uuid().v4(),
+      name: subjectName.trim(),
+      order: _subjects.length,
+      topics: const [],
+    );
+    _subjects = [..._subjects, newSubject];
+    await _persistAndEnqueue('subject_create', newSubject.id);
+    notifyListeners();
+  }
+
+  Future<void> editSubjectName(String subjectId, String newName) async {
+    if (_currentUserId == null || newName.trim().isEmpty) return;
+    _subjects = _subjects.map((s) {
+      if (s.id == subjectId) {
+        return s.copyWith(name: newName.trim());
+      }
+      return s;
+    }).toList();
+
+    await _persistAndEnqueue('subject_edit', subjectId);
+    notifyListeners();
+  }
+
+  Future<void> deleteSubject(String subjectId) async {
+    if (_currentUserId == null) return;
+    _subjects = _subjects.where((s) => s.id != subjectId).toList();
+    await _persistAndEnqueue('subject_delete', subjectId, isDelete: true);
+    notifyListeners();
+  }
+
   Future<void> addCustomTopic(String subjectId, String topicName) async {
     if (_currentUserId == null) return;
+    if (_currentUserId == null || topicName.trim().isEmpty) return;
     final newTopic = SyllabusTopic(
       id: const Uuid().v4(),
       name: topicName.trim(),
@@ -118,6 +152,25 @@ class SyllabusRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> editTopicName(String subjectId, String topicId, String newName) async {
+    if (_currentUserId == null || newName.trim().isEmpty) return;
+    _subjects = _subjects.map((s) {
+      if (s.id == subjectId) {
+        final updatedTopics = s.topics.map((t) {
+          if (t.id == topicId) {
+            return t.copyWith(name: newName.trim());
+          }
+          return t;
+        }).toList();
+        return s.copyWith(topics: updatedTopics);
+      }
+      return s;
+    }).toList();
+
+    await _persistAndEnqueue('topic_edit', topicId);
+    notifyListeners();
+  }
+
   Future<void> deleteTopic(String subjectId, String topicId) async {
     if (_currentUserId == null) return;
     _subjects = _subjects.map((s) {
@@ -130,6 +183,87 @@ class SyllabusRepository extends ChangeNotifier {
     }).toList();
 
     await _persistAndEnqueue('topic_delete', topicId, isDelete: true);
+    notifyListeners();
+  }
+
+  Future<void> addSubtopic(String subjectId, String topicId, String subtopicName) async {
+    if (_currentUserId == null || subtopicName.trim().isEmpty) return;
+    final newSubtopic = SyllabusSubtopic(
+      id: const Uuid().v4(),
+      name: subtopicName.trim(),
+      topicId: topicId,
+      status: SyllabusStatus.notStarted,
+    );
+
+    _subjects = _subjects.map((s) {
+      if (s.id == subjectId) {
+        final updatedTopics = s.topics.map((t) {
+          if (t.id == topicId) {
+            return t.copyWith(subtopics: [...t.subtopics, newSubtopic]);
+          }
+          return t;
+        }).toList();
+        return s.copyWith(topics: updatedTopics);
+      }
+      return s;
+    }).toList();
+
+    await _persistAndEnqueue('subtopic_create', newSubtopic.id);
+    notifyListeners();
+  }
+
+  Future<void> editSubtopicName(
+    String subjectId,
+    String topicId,
+    String subtopicId,
+    String newName,
+  ) async {
+    if (_currentUserId == null || newName.trim().isEmpty) return;
+    _subjects = _subjects.map((s) {
+      if (s.id == subjectId) {
+        final updatedTopics = s.topics.map((t) {
+          if (t.id == topicId) {
+            final updatedSubtopics = t.subtopics.map((st) {
+              if (st.id == subtopicId) {
+                return st.copyWith(name: newName.trim());
+              }
+              return st;
+            }).toList();
+            return t.copyWith(subtopics: updatedSubtopics);
+          }
+          return t;
+        }).toList();
+        return s.copyWith(topics: updatedTopics);
+      }
+      return s;
+    }).toList();
+
+    await _persistAndEnqueue('subtopic_edit', subtopicId);
+    notifyListeners();
+  }
+
+  Future<void> deleteSubtopic(
+    String subjectId,
+    String topicId,
+    String subtopicId,
+  ) async {
+    if (_currentUserId == null) return;
+    _subjects = _subjects.map((s) {
+      if (s.id == subjectId) {
+        final updatedTopics = s.topics.map((t) {
+          if (t.id == topicId) {
+            return t.copyWith(
+              subtopics: t.subtopics.where((st) => st.id != subtopicId).toList(),
+            );
+          }
+          return t;
+        }).toList();
+        return s.copyWith(topics: updatedTopics);
+      }
+      return s;
+    }).toList();
+
+    await _persistAndEnqueue('subtopic_delete', subtopicId, isDelete: true);
     notifyListeners();
   }
 

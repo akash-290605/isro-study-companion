@@ -63,28 +63,19 @@ class ResponsiveScaffold extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E3A8A), Color(0xFF0284C7)],
-                  ),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  'ISRO',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                    letterSpacing: 1.1,
-                  ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.asset(
+                  'assets/images/app_logo.png',
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.cover,
                 ),
               ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'STUDY COMPANION',
+                  'ISRO STUDY COMPANION',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: isDesktop ? 15 : 13,
@@ -98,14 +89,22 @@ class ResponsiveScaffold extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.amber.shade900.withOpacity(0.25)
+                        : Colors.amber.shade100,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.amber.shade400),
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.amber.shade700
+                          : Colors.amber.shade400,
+                    ),
                   ),
                   child: Text(
                     'ECE PREPARATION',
                     style: TextStyle(
-                      color: Colors.amber.shade900,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.amber.shade300
+                          : Colors.amber.shade900,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -255,11 +254,13 @@ class ResponsiveScaffold extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               children: appNavItems.map((item) {
                 final isSelected = currentRoute == item.route;
+                final primary = Theme.of(context).colorScheme.primary;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 2.0),
                   child: Material(
                     color: isSelected
-                        ? const Color(0xFF1E3A8A).withOpacity(0.12)
+                        ? primary.withOpacity(0.12)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                     child: InkWell(
@@ -276,8 +277,8 @@ class ResponsiveScaffold extends ConsumerWidget {
                               item.icon,
                               size: 20,
                               color: isSelected
-                                  ? const Color(0xFF1E3A8A)
-                                  : Colors.grey.shade600,
+                                  ? primary
+                                  : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -288,9 +289,7 @@ class ResponsiveScaffold extends ConsumerWidget {
                                   fontWeight: isSelected
                                       ? FontWeight.w700
                                       : FontWeight.w500,
-                                  color: isSelected
-                                      ? const Color(0xFF1E3A8A)
-                                      : null,
+                                  color: isSelected ? primary : null,
                                 ),
                               ),
                             ),
@@ -322,6 +321,7 @@ class ResponsiveScaffold extends ConsumerWidget {
   }
 
   Widget _buildMobileDrawer(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Drawer(
       child: Column(
         children: [
@@ -331,22 +331,39 @@ class ResponsiveScaffold extends ConsumerWidget {
                 colors: [Color(0xFF0F1E36), Color(0xFF1E3A8A)],
               ),
             ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  'ISRO STUDY COMPANION',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset(
+                    'assets/images/app_logo.png',
+                    width: 46,
+                    height: 46,
+                    fit: BoxFit.cover,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'ECE Examination Preparation',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        'ISRO STUDY COMPANION',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'ECE Preparation Hub',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -356,7 +373,7 @@ class ResponsiveScaffold extends ConsumerWidget {
               children: appNavItems.map((item) {
                 final isSelected = currentRoute == item.route;
                 return ListTile(
-                  leading: Icon(item.icon, color: isSelected ? const Color(0xFF1E3A8A) : null),
+                  leading: Icon(item.icon, color: isSelected ? primary : null),
                   title: Text(item.label),
                   selected: isSelected,
                   onTap: () {

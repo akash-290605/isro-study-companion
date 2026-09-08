@@ -15,6 +15,7 @@ class UploadHubScreen extends ConsumerStatefulWidget {
 }
 
 class _UploadHubScreenState extends ConsumerState<UploadHubScreen> {
+  final ScrollController _scrollController = ScrollController();
   bool _isProcessing = false;
   String _statusText = '';
 
@@ -31,6 +32,7 @@ class _UploadHubScreenState extends ConsumerState<UploadHubScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _manualNameCtrl.dispose();
     _manualContentCtrl.dispose();
     _manualSubjectCtrl.dispose();
@@ -162,10 +164,27 @@ Stability condition: The impulse response must be absolutely integrable, i.e., â
     } catch (e) {
       if (mounted) {
         setState(() => _isProcessing = false);
+        // Pre-fill manual entry fields to make pasting seamless
+        _manualSubjectCtrl.text = _urlSubjectCtrl.text;
+        _manualTopicCtrl.text = _urlTopicCtrl.text;
+        _manualNameCtrl.text = _urlCtrl.text.trim();
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppErrorHandler.getFriendlyMessage(e)),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Paste Manually',
+              textColor: Colors.white,
+              onPressed: () {
+                _scrollController.animateTo(
+                  _scrollController.position.maxScrollExtent,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOut,
+                );
+              },
+            ),
           ),
         );
       }
@@ -201,7 +220,11 @@ Stability condition: The impulse response must be absolutely integrable, i.e., â
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SingleChildScrollView(
+      controller: _scrollController,
       padding: const EdgeInsets.all(24),
       child: Center(
         child: ConstrainedBox(
@@ -226,9 +249,11 @@ Stability condition: The impulse response must be absolutely integrable, i.e., â
                   margin: const EdgeInsets.only(bottom: 24),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF93C5FD)),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFF93C5FD),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -295,11 +320,11 @@ Stability condition: The impulse response must be absolutely integrable, i.e., â
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.link_rounded, color: Color(0xFF1E3A8A)),
-                          SizedBox(width: 8),
-                          Text(
+                          Icon(Icons.link_rounded, color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          const Text(
                             'URL INGESTION (USER-PROVIDED ONLY)',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),
@@ -358,11 +383,11 @@ Stability condition: The impulse response must be absolutely integrable, i.e., â
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.text_snippet_rounded, color: Color(0xFF1E3A8A)),
-                          SizedBox(width: 8),
-                          Text(
+                          Icon(Icons.text_snippet_rounded, color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          const Text(
                             'MANUAL TEXT ENTRY',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),

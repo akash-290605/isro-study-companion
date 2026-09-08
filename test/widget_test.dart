@@ -22,7 +22,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify presence of ISRO Study Companion branding and Sign In
-    expect(find.text('ISRO COMPANION'), findsOneWidget);
-    expect(find.text('Sign In to Your Account'), findsOneWidget);
+    expect(find.text('ISRO STUDY COMPANION'), findsWidgets);
+    expect(find.text('Sign In'), findsWidgets);
   });
 }

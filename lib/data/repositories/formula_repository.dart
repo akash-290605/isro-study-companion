@@ -61,6 +61,29 @@ class FormulaRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveFormula(FormulaModel formula) async {
+    if (_currentUserId == null) return;
+    final index = _formulas.indexWhere((f) => f.formulaId == formula.formulaId);
+    if (index >= 0) {
+      _formulas[index] = formula;
+      await _storage.saveFormulas(_currentUserId!, _formulas);
+      await _storage.enqueueAction(
+        _currentUserId!,
+        QueuedActionModel(
+          actionId: const Uuid().v4(),
+          actionType: QueuedActionType.update,
+          collectionName: 'formulas',
+          documentId: formula.formulaId,
+          payload: formula.toJson(),
+          timestamp: DateTime.now(),
+        ),
+      );
+      notifyListeners();
+    } else {
+      await addFormula(formula);
+    }
+  }
+
   Future<void> toggleFavorite(String formulaId) async {
     if (_currentUserId == null) return;
     final index = _formulas.indexWhere((f) => f.formulaId == formulaId);

@@ -88,12 +88,13 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
                 title: titleCtrl.text.trim(),
                 latexExpression: latexCtrl.text.trim(),
                 description: descCtrl.text.trim(),
-                sourceId: 'custom_formula',
-                sourceName: 'Personal Formula Bank',
-                sourceLocation: 'Engineering Reference',
-                createdAt: DateTime.now(),
+                sourceId: formula?.sourceId ?? 'custom_formula',
+                sourceName: formula?.sourceName ?? 'Personal Formula Bank',
+                sourceLocation: formula?.sourceLocation ?? 'Engineering Reference',
+                isFavorite: formula?.isFavorite ?? false,
+                createdAt: formula?.createdAt ?? DateTime.now(),
               );
-              ref.read(formulaRepositoryProvider).addFormula(f);
+              ref.read(formulaRepositoryProvider).saveFormula(f);
               Navigator.pop(ctx);
             },
             child: const Text('Save Formula'),
@@ -196,6 +197,7 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
                       itemCount: formulas.length,
                       itemBuilder: (ctx, i) {
                         final f = formulas[i];
+                        final theme = Theme.of(context);
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: Padding(
@@ -208,19 +210,24 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF1E3A8A).withOpacity(0.1),
+                                        color: theme.colorScheme.primary.withOpacity(0.12),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         '${f.subject} • ${f.topic}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1E3A8A),
+                                          color: theme.colorScheme.primary,
                                         ),
                                       ),
                                     ),
                                     const Spacer(),
+                                    IconButton(
+                                      tooltip: 'Edit Formula',
+                                      icon: const Icon(Icons.edit_outlined, size: 18),
+                                      onPressed: () => _openFormulaDialog(f),
+                                    ),
                                     IconButton(
                                       tooltip: 'Favorite',
                                       icon: Icon(
@@ -246,7 +253,7 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.06),
+                                    color: Colors.grey.withOpacity(0.08),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Center(
@@ -260,13 +267,19 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
                                   const SizedBox(height: 10),
                                   Text(
                                     f.description,
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+                                    ),
                                   ),
                                 ],
                                 const SizedBox(height: 6),
                                 Text(
                                   'Source: ${f.sourceName} (${f.sourceLocation})',
-                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                  ),
                                 ),
                               ],
                             ),

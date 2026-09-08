@@ -87,6 +87,12 @@ class AppTheme {
           borderSide: const BorderSide(color: primaryBlue, width: 2),
         ),
       ),
+      dividerColor: const Color(0xFFE2E8F0),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor: const Color(0xFFF1F5F9),
+        selectedColor: const Color(0xFFDBEAFE),
+        side: const BorderSide(color: Color(0xFFCBD5E1)),
+      ),
     );
   }
 
@@ -163,6 +169,15 @@ class AppTheme {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFF38BDF8), width: 2),
         ),
+      ),
+      dividerColor: const Color(0xFF1E293B),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: cardDark,
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor: const Color(0xFF1E293B),
+        selectedColor: const Color(0xFF1E3A8A),
+        side: const BorderSide(color: Color(0xFF334155)),
       ),
     );
   }

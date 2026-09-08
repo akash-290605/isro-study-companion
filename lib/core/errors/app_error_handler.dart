@@ -27,8 +27,13 @@ class AppErrorHandler {
     if (str.contains('insufficient') || str.contains('not enough information')) {
       return 'The selected study materials do not contain enough information to complete this request.';
     }
+    if (str.contains('unable to extract article text') ||
+        str.contains('invalid url') ||
+        str.contains('manual text entry')) {
+      return error.toString().replaceFirst('Exception: ', '');
+    }
     if (str.contains('url')) {
-      return 'Unable to access this URL. Please upload the material instead.';
+      return 'Unable to access this URL directly. Please copy-paste the content using the Manual Text Entry section.';
     }
 
     return 'Something went wrong. Please check your connection and try again.';

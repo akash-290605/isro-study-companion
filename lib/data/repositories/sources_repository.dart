@@ -91,30 +91,89 @@ class SourcesRepository extends ChangeNotifier {
   }) async {
     if (_currentUserId == null) throw Exception('User not authenticated');
 
+    String targetUrl = url.trim();
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://$targetUrl';
+    }
+
+    final parsedUri = Uri.tryParse(targetUrl);
+    if (parsedUri == null || !parsedUri.hasScheme || parsedUri.host.isEmpty) {
+      throw Exception('Invalid URL. Please enter a valid address (e.g. https://example.com/notes).');
+    }
+
     String extractedText = '';
+    final headers = {
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept':
+          'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+
+    String cleanHtml(String body) {
+      return body
+          .replaceAll(RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'<style[\s\S]*?</style>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'<nav[\s\S]*?</nav>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'<header[\s\S]*?</header>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'<footer[\s\S]*?</footer>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'<!--[\s\S]*?-->'), '')
+          .replaceAll(RegExp(r'&nbsp;', caseSensitive: false), ' ')
+          .replaceAll(RegExp(r'&amp;', caseSensitive: false), '&')
+          .replaceAll(RegExp(r'&lt;', caseSensitive: false), '<')
+          .replaceAll(RegExp(r'&gt;', caseSensitive: false), '>')
+          .replaceAll(RegExp(r'&quot;', caseSensitive: false), '"')
+          .replaceAll(RegExp(r'&#39;|&apos;', caseSensitive: false), "'")
+          .replaceAll(RegExp(r'<[^>]*>'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+    }
+
+    // Step 1: Direct Fetch (works on mobile/desktop, or web with CORS)
     try {
       final response = await http
-          .get(Uri.parse(url))
+          .get(parsedUri, headers: headers)
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        // Strip basic HTML tags strictly without contacting external search engines
-        final body = response.body;
-        extractedText = body
-            .replaceAll(RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '')
-            .replaceAll(RegExp(r'<style[\s\S]*?</style>', caseSensitive: false), '')
-            .replaceAll(RegExp(r'<[^>]*>'), ' ')
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .trim();
-      } else {
-        throw Exception('Unable to access this URL. Please upload the material instead.');
+        extractedText = cleanHtml(response.body);
       }
     } catch (_) {
-      throw Exception('Unable to access this URL. Please upload the material instead.');
+      // Direct fetch might fail on web due to CORS; proceed to proxies
     }
 
+    // Step 2: If empty or failed, try CORS proxy (vital on Flutter Web)
     if (extractedText.isEmpty) {
-      throw Exception('Unable to access this URL. Please upload the material instead.');
+      try {
+        final proxyUri = Uri.parse(
+          'https://api.allorigins.win/raw?url=${Uri.encodeComponent(targetUrl)}',
+        );
+        final proxyResponse = await http
+            .get(proxyUri)
+            .timeout(const Duration(seconds: 12));
+        if (proxyResponse.statusCode >= 200 && proxyResponse.statusCode < 300) {
+          extractedText = cleanHtml(proxyResponse.body);
+        }
+      } catch (_) {
+        // Fallback proxy 2
+        try {
+          final fallbackProxyUri = Uri.parse(
+            'https://corsproxy.io/?url=${Uri.encodeComponent(targetUrl)}',
+          );
+          final fbResponse = await http
+              .get(fallbackProxyUri)
+              .timeout(const Duration(seconds: 12));
+          if (fbResponse.statusCode >= 200 && fbResponse.statusCode < 300) {
+            extractedText = cleanHtml(fbResponse.body);
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (extractedText.trim().isEmpty || extractedText.length < 20) {
+      throw Exception(
+        'Unable to extract article text from this website. The site may block automated access or require login. Please copy the text and use the "Manual Text Entry" section below.',
+      );
     }
 
     final sourceId = const Uuid().v4();

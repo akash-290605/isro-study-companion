@@ -7,6 +7,8 @@ class NoteModel {
   final String topic;
   final String? subtopic;
   final List<String> tags;
+  final String? imageBase64;
+  final String? imageName;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -19,6 +21,8 @@ class NoteModel {
     this.topic = '',
     this.subtopic,
     this.tags = const [],
+    this.imageBase64,
+    this.imageName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -32,6 +36,8 @@ class NoteModel {
     'topic': topic,
     'subtopic': subtopic,
     'tags': tags,
+    'imageBase64': imageBase64,
+    'imageName': imageName,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -46,6 +52,8 @@ class NoteModel {
     subtopic: json['subtopic'] as String?,
     tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
         const [],
+    imageBase64: json['imageBase64'] as String?,
+    imageName: json['imageName'] as String?,
     createdAt: json['createdAt'] != null
         ? DateTime.parse(json['createdAt'] as String)
         : DateTime.now(),
@@ -63,6 +71,8 @@ class NoteModel {
     String? topic,
     String? subtopic,
     List<String>? tags,
+    String? imageBase64,
+    String? imageName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -75,6 +85,8 @@ class NoteModel {
       topic: topic ?? this.topic,
       subtopic: subtopic ?? this.subtopic,
       tags: tags ?? this.tags,
+      imageBase64: imageBase64 ?? this.imageBase64,
+      imageName: imageName ?? this.imageName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

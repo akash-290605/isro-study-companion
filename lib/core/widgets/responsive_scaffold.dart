@@ -59,11 +59,12 @@ class ResponsiveScaffold extends ConsumerWidget {
                 ),
               ),
         title: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
+          padding: EdgeInsets.only(left: isDesktop ? 16.0 : 6.0),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF1E3A8A), Color(0xFF0284C7)],
@@ -75,18 +76,21 @@ class ResponsiveScaffold extends ConsumerWidget {
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    letterSpacing: 1.2,
+                    fontSize: 12,
+                    letterSpacing: 1.1,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
-                'STUDY COMPANION',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  letterSpacing: 0.5,
+              Flexible(
+                child: Text(
+                  'STUDY COMPANION',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: isDesktop ? 15 : 13,
+                    letterSpacing: 0.4,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (isDesktop) ...[
@@ -130,28 +134,29 @@ class ResponsiveScaffold extends ConsumerWidget {
           ],
           // Multi-Device Sync Status Badge
           const SyncStatusBadge(),
-          const SizedBox(width: 8),
-          // Theme Switcher
-          IconButton(
-            tooltip: 'Toggle Theme',
-            icon: Icon(
-              themeMode == ThemeMode.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
+          const SizedBox(width: 4),
+          // Theme Switcher (visible on screens >= 420px, also available in Account Menu)
+          if (MediaQuery.of(context).size.width >= 420) ...[
+            IconButton(
+              tooltip: 'Toggle Theme',
+              icon: Icon(
+                themeMode == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded,
+              ),
+              onPressed: () {
+                ref.read(themeModeProvider.notifier).state =
+                    themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+              },
             ),
-            onPressed: () {
-              ref.read(themeModeProvider.notifier).state =
-                  themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
-            },
-          ),
-          const SizedBox(width: 8),
+          ],
           // User Avatar & Logout
           PopupMenuButton<String>(
             tooltip: 'Account',
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 6.0),
               child: CircleAvatar(
-                radius: 16,
+                radius: 15,
                 backgroundColor: const Color(0xFF1E3A8A),
                 child: Text(
                   auth.currentUser?.displayName.isNotEmpty == true
@@ -162,7 +167,10 @@ class ResponsiveScaffold extends ConsumerWidget {
               ),
             ),
             onSelected: (val) {
-              if (val == 'settings') {
+              if (val == 'theme') {
+                ref.read(themeModeProvider.notifier).state =
+                    themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+              } else if (val == 'settings') {
                 context.go('/settings');
               } else if (val == 'logout') {
                 auth.signOut();
@@ -178,6 +186,21 @@ class ResponsiveScaffold extends ConsumerWidget {
                 ),
               ),
               const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'theme',
+                child: Row(
+                  children: [
+                    Icon(
+                      themeMode == ThemeMode.dark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(themeMode == ThemeMode.dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'settings',
                 child: Row(
@@ -200,7 +223,7 @@ class ResponsiveScaffold extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
       ),
       drawer: isDesktop ? null : _buildMobileDrawer(context),

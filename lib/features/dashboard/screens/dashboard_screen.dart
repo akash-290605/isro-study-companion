@@ -86,6 +86,60 @@ class DashboardScreen extends ConsumerWidget {
             ),
             child: LayoutBuilder(
               builder: (ctx, constraints) {
+                final isNarrow = constraints.maxWidth < 650;
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome, ${user?.displayName.isNotEmpty == true ? user!.displayName : "Aspirant"}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'ISRO Scientist/Engineer (ECE) Study Companion',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🔥', style: TextStyle(fontSize: 18)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${user?.streakDays ?? 1} DAY STREAK',
+                                  style: const TextStyle(
+                                    color: Colors.amber,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const RealTimeClockWidget(variant: ClockVariant.headerBanner),
+                        ],
+                      ),
+                    ],
+                  );
+                }
+
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -158,57 +212,97 @@ class DashboardScreen extends ConsumerWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A8A),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.lightbulb_outline_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'WHAT SHOULD I STUDY NOW?',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E3A8A),
-                            letterSpacing: 1.0,
-                          ),
+              child: LayoutBuilder(
+                builder: (ctx, cardConstraints) {
+                  final isCardNarrow = cardConstraints.maxWidth < 600;
+                  final content = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'WHAT SHOULD I STUDY NOW?',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E3A8A),
+                          letterSpacing: 1.0,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Review "$topWeakTopic" & practice ${unresolvedMistakesCount > 0 ? "$unresolvedMistakesCount logged mistakes" : "exam questions"}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A),
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Review "$topWeakTopic" & practice ${unresolvedMistakesCount > 0 ? "$unresolvedMistakesCount logged mistakes" : "exam questions"}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Recommended based on your recent test accuracy (${weakTopicsList.first.value.toStringAsFixed(0)}%) and unrevised notes.',
-                          style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade700),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton.icon(
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Recommended based on your recent test accuracy (${weakTopicsList.first.value.toStringAsFixed(0)}%) and unrevised notes.',
+                        style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade700),
+                      ),
+                    ],
+                  );
+
+                  final startButton = ElevatedButton.icon(
                     onPressed: () => context.go('/ai-test'),
                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
                     label: const Text('Start Test'),
-                  ),
-                ],
+                  );
+
+                  if (isCardNarrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E3A8A),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.lightbulb_outline_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(child: content),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: startButton,
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E3A8A),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.lightbulb_outline_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(child: content),
+                      const SizedBox(width: 12),
+                      startButton,
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -229,7 +323,7 @@ class DashboardScreen extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: isWide ? 1.6 : 1.35,
+                childAspectRatio: isWide ? 1.6 : 1.25,
                 children: [
                   _statCard(
                     context,
@@ -328,32 +422,60 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _summaryBox(
-                          'Last 7 Days',
-                          '${(sessionsRepo.weeklyStudySeconds / 3600).toStringAsFixed(1)} hrs',
-                          Icons.date_range_rounded,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _summaryBox(
-                          'Last 30 Days',
-                          '${(sessionsRepo.monthlyStudySeconds / 3600).toStringAsFixed(1)} hrs',
-                          Icons.calendar_month_rounded,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _summaryBox(
-                          'Syllabus Covered',
-                          '${syllabusRepo.overallProgressPercentage.toStringAsFixed(1)}%',
-                          Icons.pie_chart_outline_rounded,
-                        ),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (ctx, summaryConstraints) {
+                      final isSummaryNarrow = summaryConstraints.maxWidth < 600;
+                      if (isSummaryNarrow) {
+                        return Column(
+                          children: [
+                            _summaryBox(
+                              'Last 7 Days',
+                              '${(sessionsRepo.weeklyStudySeconds / 3600).toStringAsFixed(1)} hrs',
+                              Icons.date_range_rounded,
+                            ),
+                            const SizedBox(height: 8),
+                            _summaryBox(
+                              'Last 30 Days',
+                              '${(sessionsRepo.monthlyStudySeconds / 3600).toStringAsFixed(1)} hrs',
+                              Icons.calendar_month_rounded,
+                            ),
+                            const SizedBox(height: 8),
+                            _summaryBox(
+                              'Syllabus Covered',
+                              '${syllabusRepo.overallProgressPercentage.toStringAsFixed(1)}%',
+                              Icons.pie_chart_outline_rounded,
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: _summaryBox(
+                              'Last 7 Days',
+                              '${(sessionsRepo.weeklyStudySeconds / 3600).toStringAsFixed(1)} hrs',
+                              Icons.date_range_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _summaryBox(
+                              'Last 30 Days',
+                              '${(sessionsRepo.monthlyStudySeconds / 3600).toStringAsFixed(1)} hrs',
+                              Icons.calendar_month_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _summaryBox(
+                              'Syllabus Covered',
+                              '${syllabusRepo.overallProgressPercentage.toStringAsFixed(1)}%',
+                              Icons.pie_chart_outline_rounded,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

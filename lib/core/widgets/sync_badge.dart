@@ -29,8 +29,10 @@ class SyncStatusBadge extends ConsumerWidget {
         break;
     }
 
+    final isCompact = MediaQuery.of(context).size.width < 500;
+
     return Tooltip(
-      message: 'Multi-device synchronization status',
+      message: 'Sync status: ${status.label}',
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () {
@@ -43,7 +45,10 @@ class SyncStatusBadge extends ConsumerWidget {
           );
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 8 : 10,
+            vertical: 5,
+          ),
           decoration: BoxDecoration(
             color: color.withOpacity(0.15),
             borderRadius: BorderRadius.circular(20),
@@ -53,15 +58,17 @@ class SyncStatusBadge extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 14, color: color),
-              const SizedBox(width: 6),
-              Text(
-                status.label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+              if (!isCompact) ...[
+                const SizedBox(width: 6),
+                Text(
+                  status.label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

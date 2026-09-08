@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/alarm_service.dart';
 import '../../../core/services/providers.dart';
 import '../../../data/models/study_session_model.dart';
 
@@ -23,15 +24,75 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   int _accumulatedSeconds = 0;
   Timer? _periodicTicker;
 
-  // Pomodoro settings
-  final int _studyMinutes = AppConstants.defaultPomodoroStudyMinutes;
-  final int _shortBreakMinutes = AppConstants.defaultPomodoroShortBreakMinutes;
+  // Customizable Pomodoro settings
+  int _studyMinutes = AppConstants.defaultPomodoroStudyMinutes;
+  int _shortBreakMinutes = AppConstants.defaultPomodoroShortBreakMinutes;
   int _completedCycles = 0;
 
   // Subject / Topic tagging
   String _selectedSubject = 'Network Theory';
   String _selectedTopic = 'Network Analysis';
   final String _selectedSubtopic = 'KCL, KVL & Node/Mesh Analysis';
+
+  void _openCustomDurationDialog() {
+    final studyCtrl = TextEditingController(text: '$_studyMinutes');
+    final breakCtrl = TextEditingController(text: '$_shortBreakMinutes');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.tune_rounded, color: Color(0xFF1E3A8A)),
+            SizedBox(width: 8),
+            Text('Customize Timer Duration'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: studyCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Study Interval (minutes)',
+                suffixText: 'mins',
+                hintText: 'e.g. 15, 30, 45, 90',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: breakCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Break Interval (minutes)',
+                suffixText: 'mins',
+                hintText: 'e.g. 5, 10, 15',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final newStudy = int.tryParse(studyCtrl.text.trim());
+              final newBreak = int.tryParse(breakCtrl.text.trim());
+              if (newStudy != null && newStudy > 0 && newBreak != null && newBreak > 0) {
+                setState(() {
+                  _studyMinutes = newStudy;
+                  _shortBreakMinutes = newBreak;
+                  _resetTimer();
+                });
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Set Duration'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -85,6 +146,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   Future<void> _stopAndSaveSession() async {
     final totalSeconds = _currentSeconds;
     _pauseTimer();
+    ref.read(alarmServiceProvider).stopAlarm();
 
     if (totalSeconds < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,6 +188,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
 
   void _resetTimer() {
     _periodicTicker?.cancel();
+    ref.read(alarmServiceProvider).stopAlarm();
     setState(() {
       _isRunning = false;
       _isBreak = false;
@@ -149,6 +212,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   @override
   Widget build(BuildContext context) {
     final syllabus = ref.watch(syllabusRepositoryProvider);
+    final alarmService = ref.watch(alarmServiceProvider);
     final subjectNames = syllabus.subjects.map((s) => s.name).toList();
     if (!subjectNames.contains(_selectedSubject) && subjectNames.isNotEmpty) {
       _selectedSubject = subjectNames.first;
@@ -169,12 +233,14 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final pomodoroRemaining = (targetSeconds - _currentSeconds).clamp(0, targetSeconds);
 
     if (_mode == TimerMode.pomodoro && _isRunning && pomodoroRemaining <= 0) {
-      // Auto cycle switch
+      // Countdown reached zero: pause timer, ring alarm, and advance cycle
       Future.microtask(() {
         if (mounted) {
+          _pauseTimer();
+          ref.read(alarmServiceProvider).startAlarm();
           setState(() {
             _accumulatedSeconds = 0;
-            _timerSegmentStartTime = DateTime.now();
+            _timerSegmentStartTime = null;
             if (!_isBreak) {
               _completedCycles += 1;
               _isBreak = true;
@@ -198,6 +264,65 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Active Alarm Ringing Alert Banner
+              if (alarmService.isRinging) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.red.shade400, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.15),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.alarm_on_rounded, color: Colors.red, size: 28),
+                          SizedBox(width: 8),
+                          Text(
+                            "TIME COMPLETED! ALARM RINGING",
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _isBreak
+                            ? "Great job! Focus interval complete. Take a $_shortBreakMinutes-min break or save your session."
+                            : "Break is over! Alarm ringing. Ready to begin the next focus interval?",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.notifications_off_rounded, size: 20),
+                        label: const Text('STOP ALARM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        onPressed: () => alarmService.stopAlarm(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               // Header & Mode Selector
               Card(
                 child: Padding(
@@ -237,6 +362,89 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Duration Customization Card (Pomodoro mode)
+              if (_mode == TimerMode.pomodoro) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'STUDY DURATION & ALARM',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E3A8A),
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  tooltip: alarmService.soundEnabled ? 'Alarm Sound: ON' : 'Alarm Sound: MUTED',
+                                  icon: Icon(
+                                    alarmService.soundEnabled
+                                        ? Icons.notifications_active_rounded
+                                        : Icons.notifications_off_rounded,
+                                    color: alarmService.soundEnabled ? const Color(0xFF10B981) : Colors.grey,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => alarmService.toggleSound(!alarmService.soundEnabled),
+                                ),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.volume_up_rounded, size: 16),
+                                  label: const Text('Test Alarm', style: TextStyle(fontSize: 11)),
+                                  onPressed: () => alarmService.playTestChime(),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            ...[15, 25, 45, 60].map((mins) {
+                              final isSelected = _studyMinutes == mins;
+                              return ChoiceChip(
+                                label: Text('$mins min'),
+                                selected: isSelected,
+                                onSelected: _isRunning
+                                    ? null
+                                    : (selected) {
+                                        if (selected) {
+                                          setState(() {
+                                            _studyMinutes = mins;
+                                            _resetTimer();
+                                          });
+                                        }
+                                      },
+                              );
+                            }),
+                            ActionChip(
+                              avatar: const Icon(Icons.tune_rounded, size: 16),
+                              label: Text(
+                                ![15, 25, 45, 60].contains(_studyMinutes)
+                                    ? '$_studyMinutes min (Custom)'
+                                    : 'Custom...',
+                              ),
+                              onPressed: _isRunning ? null : _openCustomDurationDialog,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Subject / Topic Association
               Card(

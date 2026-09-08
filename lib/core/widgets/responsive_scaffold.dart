@@ -19,7 +19,6 @@ final List<NavItem> appNavItems = [
   const NavItem('Timer', Icons.timer_rounded, '/timer'),
   const NavItem('Syllabus', Icons.menu_book_rounded, '/syllabus'),
   const NavItem('Notes', Icons.note_alt_rounded, '/notes'),
-  const NavItem('Upload Hub', Icons.cloud_upload_rounded, '/uploads'),
   const NavItem('Source Library', Icons.folder_shared_rounded, '/source-library'),
   const NavItem('Question Bank', Icons.quiz_rounded, '/question-bank'),
   const NavItem('AI Test', Icons.auto_awesome_rounded, '/ai-test'),

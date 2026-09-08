@@ -10,12 +10,12 @@ import '../../features/mistakes/screens/mistakes_screen.dart';
 import '../../features/notes/screens/notes_screen.dart';
 import '../../features/performance/screens/performance_screen.dart';
 import '../../features/question_bank/screens/question_bank_screen.dart';
+import '../../features/question_bank/screens/question_detail_screen.dart';
 import '../../features/revision/screens/revision_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/source_library/screens/source_library_screen.dart';
 import '../../features/syllabus/screens/syllabus_screen.dart';
 import '../../features/timer/screens/timer_screen.dart';
-import '../../features/uploads/screens/upload_hub_screen.dart';
 import '../services/providers.dart';
 import '../widgets/responsive_scaffold.dart';
 
@@ -71,7 +71,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/uploads',
-            builder: (context, state) => const UploadHubScreen(),
+            redirect: (context, state) => '/question-bank',
           ),
           GoRoute(
             path: '/source-library',
@@ -80,6 +80,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/question-bank',
             builder: (context, state) => const QuestionBankScreen(),
+          ),
+          GoRoute(
+            path: '/question-bank/detail/:id',
+            builder: (context, state) => QuestionDetailScreen(
+              questionId: state.pathParameters['id'] ?? '',
+            ),
           ),
           GoRoute(
             path: '/ai-test',

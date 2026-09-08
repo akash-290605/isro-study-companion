@@ -63,10 +63,10 @@ class _TestBuilderScreenState extends ConsumerState<TestBuilderScreen> {
     final sources = ref.read(sourcesRepositoryProvider).sources;
     final questions = ref.read(questionsRepositoryProvider).questions;
 
-    if (sources.isEmpty) {
+    if (sources.isEmpty && questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No study materials found. Please upload materials in the Upload Hub first.'),
+          content: Text('No study materials or questions found. Please import materials into the Question Bank first.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -108,9 +108,9 @@ class _TestBuilderScreenState extends ConsumerState<TestBuilderScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                context.go('/uploads');
+                context.go('/question-bank');
               },
-              child: const Text('Upload More Sources'),
+              child: const Text('Open Question Bank & Import'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx),

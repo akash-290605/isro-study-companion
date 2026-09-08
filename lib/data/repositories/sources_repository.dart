@@ -37,6 +37,24 @@ class SourcesRepository extends ChangeNotifier {
     }).toList();
   }
 
+  Future<void> addSource(SourceDocumentModel doc) async {
+    if (_currentUserId == null) return;
+    _sources.insert(0, doc);
+    await _storage.saveSources(_currentUserId!, _sources);
+    await _storage.enqueueAction(
+      _currentUserId!,
+      QueuedActionModel(
+        actionId: const Uuid().v4(),
+        actionType: QueuedActionType.create,
+        collectionName: 'sources',
+        documentId: doc.sourceId,
+        payload: doc.toJson(),
+        timestamp: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
   Future<SourceDocumentModel> addManualTextSource({
     required String name,
     required String content,

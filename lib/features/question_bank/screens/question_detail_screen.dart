@@ -315,6 +315,7 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
             tooltip: 'Delete Question',
             icon: const Icon(Icons.delete_outline, color: Colors.red),
             onPressed: () async {
+              final navigator = GoRouter.of(context);
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
@@ -330,8 +331,7 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
                   ],
                 ),
               );
-              if (confirmed == true && context.mounted) {
-                final navigator = GoRouter.of(context);
+              if (confirmed == true && mounted) {
                 await qRepo.deleteQuestion(q.questionId);
                 navigator.go('/question-bank');
               }
@@ -1000,11 +1000,7 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
                   await ref.read(questionsRepositoryProvider).updateUserNotes(q.questionId, _notesCtrl.text);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Notes saved successfully!')),
-                    );
-                  }
+                  if (!mounted) return;
                   messenger.showSnackBar(
                     const SnackBar(content: Text('Notes saved successfully!')),
                   );

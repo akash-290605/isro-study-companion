@@ -357,7 +357,6 @@ class AIQuestionExtractorService {
     int qIndex = 1;
 
     void flushQuestion() {
-      if (currentQ.trim().isNotEmpty) {
       final qTrim = currentQ.trim();
       if (qTrim.isNotEmpty) {
         if (qTrim.startsWith('%PDF') ||
@@ -374,29 +373,26 @@ class AIQuestionExtractorService {
         }
 
         final isUnknown = currentAns.trim().isEmpty || currentAns.toLowerCase().contains('unknown');
-        final extractedOpts = _extractInlineOptions(currentQ);
         final extractedOpts = _extractInlineOptions(qTrim);
         final opts = extractedOpts.isNotEmpty ? extractedOpts : currentOpts;
         final hasOpts = opts.length >= 2;
-        final diag = _inferDiagram(currentQ, currentSol);
         final diag = _inferDiagram(qTrim, currentSol);
 
         result.add(QuestionModel(
           questionId: 'ext_${_uuid.v4()}',
           userId: userId,
-          questionText: currentQ.trim(),
           questionText: qTrim,
           options: hasOpts ? opts : const [],
           correctAnswer: isUnknown ? 'ANSWER UNKNOWN' : _extractConciseAnswer(currentAns, opts),
           solution: currentSol.isNotEmpty ? currentSol.trim() : 'Extracted from source document.',
-          subject: _inferSubject(currentQ),
-          topic: _inferTopic(currentQ),
-          difficulty: _inferDifficulty(currentQ),
+          subject: _inferSubject(qTrim),
+          topic: _inferTopic(qTrim),
+          difficulty: _inferDifficulty(qTrim),
           questionType: diag != DiagramType.none
               ? QuestionType.diagramBased
               : (hasOpts
                   ? (opts.length == 2 ? QuestionType.trueFalse : QuestionType.mcq)
-                  : (_isNumerical(currentQ) ? QuestionType.numerical : QuestionType.conceptual)),
+                  : (_isNumerical(qTrim) ? QuestionType.numerical : QuestionType.conceptual)),
           status: QuestionStatus.unsolved,
           verificationStatus: isUnknown ? VerificationStatus.unknown : VerificationStatus.sourceVerified,
           diagramType: diag,

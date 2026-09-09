@@ -34,13 +34,11 @@ class QuestionsRepository extends ChangeNotifier {
   void loadForUser(String userId) {
     _currentUserId = userId;
     _questions = _storage.getQuestions(userId);
-    // Purge any inbuilt/starter questions
     // Purge any inbuilt/starter questions and any corrupted document dumps
     final beforeCount = _questions.length;
     _questions.removeWhere((q) =>
         q.questionId.startsWith('q_nt_') ||
         q.questionId.startsWith('q_de_') ||
-        q.sourceId.startsWith('starter_doc_'));
         q.sourceId.startsWith('starter_doc_') ||
         isCorruptedQuestion(q));
     if (_questions.length != beforeCount) {
@@ -106,12 +104,10 @@ class QuestionsRepository extends ChangeNotifier {
 
   Future<void> addQuestions(List<QuestionModel> newQuestions) async {
     if (_currentUserId == null || newQuestions.isEmpty) return;
-    _questions.insertAll(0, newQuestions);
     final validQuestions = newQuestions.where((q) => !isCorruptedQuestion(q)).toList();
     if (validQuestions.isEmpty) return;
     _questions.insertAll(0, validQuestions);
     await _storage.saveQuestions(_currentUserId!, _questions);
-    for (final q in newQuestions) {
     for (final q in validQuestions) {
       await _storage.enqueueAction(
         _currentUserId!,

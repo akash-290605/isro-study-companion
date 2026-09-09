@@ -137,10 +137,15 @@ class AIQuestionExtractorService {
   static bool _detectSectionalStructure(List<String> lines) {
     bool foundQ = false;
     bool foundA = false;
-    for (int i = 0; i < lines.length && i < 200; i++) {
-      final l = lines[i].trim().toLowerCase();
-      if (l == 'questions:' || l == 'questions' || l.startsWith('chapter')) foundQ = true;
-      if (l == 'answers:' || l == 'answers' || l == 'solutions:' || l == 'solutions') foundA = true;
+    final maxCheck = lines.length > 2000 ? 2000 : lines.length;
+    for (int i = 0; i < maxCheck; i++) {
+      final l = lines[i].toLowerCase();
+      if (l.contains('questions:') || l.contains('questions') || l.contains('chapter') || RegExp(r'\bq\d+[\):\\.-]').hasMatch(l)) {
+        foundQ = true;
+      }
+      if (l.contains('answers:') || l.contains('answers') || l.contains('solutions:') || RegExp(r'\ba\d+[\):\\.-]').hasMatch(l)) {
+        foundA = true;
+      }
       if (foundQ && foundA) return true;
     }
     return false;
@@ -148,7 +153,7 @@ class AIQuestionExtractorService {
 
   /// Parses textbook format with Chapter headers, Questions block, and Answers block
   static Future<List<QuestionModel>> _parseSectionalDocument(
-    List<String> lines,
+    List<String> rawLines,
     String sourceName,
     String userId,
     void Function(String stage, double progress)? onProgress,
@@ -160,16 +165,27 @@ class AIQuestionExtractorService {
     bool inQuestions = false;
     bool inAnswers = false;
 
-    // Temporary storage for current chapter
+    // Expand lines that bundle multiple questions or answers on a single line
+    final List<String> lines = [];
+    final qSplitter = RegExp(r'(?=\b(?:Q\d+|A\d+)\s*[\):\\.-])');
+
+    for (final raw in rawLines) {
+      final parts = raw.split(qSplitter);
+      for (final p in parts) {
+        final t = p.trim();
+        if (t.isNotEmpty) lines.add(t);
+      }
+    }
+
     final List<_RawQ> chapterQuestions = [];
     final Map<int, String> chapterAnswers = {};
 
-    final chapterRegex = RegExp(r'^(?:Chapter\s*\d+\s*[:=-]\s*|\bChapter\s*\d+\b\s*)(.+)$', caseSensitive: false);
-    final qHeaderRegex = RegExp(r'^Questions?\s*[:=-]?\s*$', caseSensitive: false);
-    final aHeaderRegex = RegExp(r'^(?:Answers?|Solutions?)\s*[:=-]?\s*$', caseSensitive: false);
+    final chapterRegex = RegExp(r'Chapter\s*\d+\s*[:=-]?\s*(.+)', caseSensitive: false);
+    final qHeaderRegex = RegExp(r'\bQuestions?\s*[:=-]?', caseSensitive: false);
+    final aHeaderRegex = RegExp(r'\b(?:Answers?|Solutions?)\s*[:=-]?', caseSensitive: false);
 
-    final qNumRegex = RegExp(r'^(?:Q\s*(\d+)|(\d+))\s*[\).:-]\s*(.+)$', caseSensitive: false);
-    final aNumRegex = RegExp(r'^(?:A\s*(\d+)|Ans\s*(\d+)|Sol\s*(\d+))\s*[\).:-]\s*(.+)$', caseSensitive: false);
+    final qNumRegex = RegExp(r'\bQ\s*(\d+)\s*[\):\\.-]\s*(.+)', caseSensitive: false);
+    final aNumRegex = RegExp(r'\bA\s*(\d+)\s*[\):\\.-]\s*(.+)', caseSensitive: false);
 
     _RawQ? currentQ;
     int? currentAIndex;
@@ -177,7 +193,7 @@ class AIQuestionExtractorService {
 
     void flushA() {
       if (currentAIndex != null && currentABuffer.isNotEmpty) {
-        chapterAnswers[currentAIndex!] = currentABuffer.toString().trim();
+        chapterAnswers[currentAIndex!] = _cleanExtractedText(currentABuffer.toString().trim());
       }
       currentAIndex = null;
       currentABuffer.clear();
@@ -194,7 +210,6 @@ class AIQuestionExtractorService {
         final ansText = chapterAnswers[rq.num] ?? '';
         final isUnknown = ansText.isEmpty;
 
-        // Parse choices from question text if present: e.g. (a) ... (b) ... (c) ... (d) ...
         final extractedOpts = _extractInlineOptions(rq.text);
         final opts = extractedOpts.isNotEmpty ? extractedOpts : rq.options;
 
@@ -204,7 +219,7 @@ class AIQuestionExtractorService {
         allQuestions.add(QuestionModel(
           questionId: 'ext_${_uuid.v4()}',
           userId: userId,
-          questionText: rq.text.trim(),
+          questionText: _cleanExtractedText(rq.text.trim()),
           options: hasOpts ? opts : const [],
           correctAnswer: isUnknown ? 'ANSWER UNKNOWN' : _extractConciseAnswer(ansText, opts),
           solution: ansText.isNotEmpty ? ansText : 'Refer to chapter material.',
@@ -231,11 +246,10 @@ class AIQuestionExtractorService {
     }
 
     for (int i = 0; i < lines.length; i++) {
-      final line = lines[i].trim();
-      if (line.isEmpty) continue;
+      final line = lines[i];
 
-      // Yield event loop every 30 lines to prevent UI lag
-      if (i % 30 == 0) {
+      // Yield event loop every 40 lines to maintain fluid 60fps UI
+      if (i % 40 == 0) {
         await Future.delayed(Duration.zero);
       }
 
@@ -243,68 +257,80 @@ class AIQuestionExtractorService {
       final chMatch = chapterRegex.firstMatch(line);
       if (chMatch != null) {
         finalizeChapter();
-        currentChapter = chMatch.group(1)?.trim() ?? line;
+        currentChapter = _cleanExtractedText(chMatch.group(1)?.trim() ?? line);
         currentSubject = _inferSubject(currentChapter);
         inQuestions = false;
         inAnswers = false;
-        continue;
       }
 
-      // Check Questions Section
+      // Check Section Headers
       if (qHeaderRegex.hasMatch(line)) {
+        flushA();
         inQuestions = true;
         inAnswers = false;
-        flushA();
-        continue;
-      }
-
-      // Check Answers Section
-      if (aHeaderRegex.hasMatch(line)) {
-        inQuestions = false;
-        inAnswers = true;
+      } else if (aHeaderRegex.hasMatch(line)) {
         if (currentQ != null) {
           chapterQuestions.add(currentQ!);
           currentQ = null;
         }
+        inQuestions = false;
+        inAnswers = true;
+      }
+
+      final qMatch = qNumRegex.firstMatch(line);
+      if (qMatch != null) {
+        if (currentQ != null) {
+          chapterQuestions.add(currentQ!);
+        }
+        inQuestions = true;
+        inAnswers = false;
+        final qNum = int.tryParse(qMatch.group(1)!) ?? 1;
+        final qText = qMatch.group(2) ?? line;
+        currentQ = _RawQ(num: qNum, text: qText);
         continue;
       }
 
-      if (inQuestions) {
-        final qMatch = qNumRegex.firstMatch(line);
-        if (qMatch != null) {
-          if (currentQ != null) {
-            chapterQuestions.add(currentQ!);
-          }
-          final qNum = int.tryParse(qMatch.group(1) ?? qMatch.group(2) ?? '1') ?? 1;
-          final qText = qMatch.group(3) ?? line;
-          currentQ = _RawQ(num: qNum, text: qText);
-        } else if (currentQ != null) {
-          final inlineOpts = _extractInlineOptions(line);
-          if (inlineOpts.length >= 2) {
-            currentQ!.options.addAll(inlineOpts);
+      final aMatch = aNumRegex.firstMatch(line);
+      if (aMatch != null) {
+        flushA();
+        inAnswers = true;
+        inQuestions = false;
+        currentAIndex = int.tryParse(aMatch.group(1)!);
+        currentABuffer.writeln(aMatch.group(2) ?? line);
+        continue;
+      }
+
+      if (inQuestions && currentQ != null) {
+        final inlineOpts = _extractInlineOptions(line);
+        if (inlineOpts.length >= 2) {
+          currentQ!.options.addAll(inlineOpts);
+        } else {
+          final optMatch = RegExp(r'^[(\[]?([A-Da-d])[)\]\.\\-]\s*(.+)$').firstMatch(line);
+          if (optMatch != null) {
+            currentQ!.options.add('${optMatch.group(1)!.toUpperCase()}. ${optMatch.group(2)!}');
           } else {
-            final optMatch = RegExp(r'^[(\[]?([A-Da-d])[)\]\.]\s*(.+)$').firstMatch(line);
-            if (optMatch != null) {
-              currentQ!.options.add('${optMatch.group(1)!.toUpperCase()}. ${optMatch.group(2)!}');
-            } else {
-              currentQ!.text += ' $line';
-            }
+            currentQ!.text += ' $line';
           }
         }
-      } else if (inAnswers) {
-        final aMatch = aNumRegex.firstMatch(line);
-        if (aMatch != null) {
-          flushA();
-          currentAIndex = int.tryParse(aMatch.group(1) ?? aMatch.group(2) ?? aMatch.group(3) ?? '1');
-          currentABuffer.writeln(aMatch.group(4) ?? line);
-        } else if (currentAIndex != null) {
-          currentABuffer.writeln(line);
-        }
+      } else if (inAnswers && currentAIndex != null) {
+        currentABuffer.writeln(line);
       }
     }
 
     finalizeChapter();
     return allQuestions;
+  }
+
+  static String _cleanExtractedText(String s) {
+    return s
+        .replaceAll(RegExp(r'\\[0-9]+'), '')
+        .replaceAll(r'\222', "'")
+        .replaceAll(r'\223', '"')
+        .replaceAll(r'\224', '"')
+        .replaceAll(r'\226', '-')
+        .replaceAll(r'\267', '•')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   /// Parses standard inline documents where answers immediately follow questions

@@ -37,57 +37,71 @@ class DocumentTextExtractor {
   }
 
   /// Extracts text from PDF bytes by decoding uncompressed and FlateDecode streams.
+  /// Uses index scanning, skips non-text/image streams, and yields the event loop
+  /// so the browser UI thread never freezes.
   static Future<String> _extractFromPdf(Uint8List bytes) async {
     final StringBuffer buffer = StringBuffer();
     final zlibDecoder = ZLibDecoder();
-
-    // Scan for streams in the PDF
     final latin1String = latin1.decode(bytes);
-    final streamStartRegex = RegExp(r'stream\r?\n');
-    final streamEndRegex = RegExp(r'\r?\nendstream');
 
-    final matches = streamStartRegex.allMatches(latin1String).toList();
-    int streamsFound = 0;
+    int searchIdx = 0;
+    int streamsProcessed = 0;
 
-    for (final m in matches) {
-      final start = m.end;
-      final endMatch = streamEndRegex.firstMatch(latin1String.substring(start));
-      if (endMatch == null) continue;
+    while (true) {
+      final streamStart = latin1String.indexOf('stream', searchIdx);
+      if (streamStart == -1) break;
 
-      final end = start + endMatch.start;
-      if (end <= start || end > bytes.length) continue;
+      // Stream content starts after stream\r?\n
+      int contentStart = streamStart + 6;
+      if (contentStart < latin1String.length && latin1String[contentStart] == '\r') contentStart++;
+      if (contentStart < latin1String.length && latin1String[contentStart] == '\n') contentStart++;
 
-      // Extract dictionary before stream to check filters
-      final dictStart = latin1String.lastIndexOf('<<', start);
-      final isFlate = dictStart != -1 &&
-          latin1String.substring(dictStart, start).contains('/FlateDecode');
+      // Find endstream
+      final streamEnd = latin1String.indexOf('endstream', contentStart);
+      if (streamEnd == -1) break;
 
-      final streamSlice = bytes.sublist(start, end);
+      searchIdx = streamEnd + 9;
+      streamsProcessed++;
+
+      // Periodically yield event loop every 15 streams to keep UI 100% responsive
+      if (streamsProcessed % 15 == 0) {
+        await Future.delayed(Duration.zero);
+      }
+
+      // Check dictionary before stream (within last 350 chars)
+      final dictSearchStart = (streamStart - 350) > 0 ? (streamStart - 350) : 0;
+      final dictSnippet = latin1String.substring(dictSearchStart, streamStart);
+
+      // Skip image streams, XObjects, and font data - they NEVER contain questions
+      if (dictSnippet.contains('/Subtype /Image') ||
+          dictSnippet.contains('/Subtype/Image') ||
+          (dictSnippet.contains('/Type /XObject') && dictSnippet.contains('/Subtype /Image')) ||
+          dictSnippet.contains('/Type /Font') ||
+          dictSnippet.contains('/FontDescriptor')) {
+        continue;
+      }
+
+      final isFlate = dictSnippet.contains('/FlateDecode');
+      final rawSlice = bytes.sublist(contentStart, streamEnd);
 
       Uint8List decompressed;
       if (isFlate) {
         try {
-          decompressed = Uint8List.fromList(zlibDecoder.decodeBytes(streamSlice));
+          decompressed = Uint8List.fromList(zlibDecoder.decodeBytes(rawSlice));
         } catch (_) {
-          decompressed = streamSlice;
+          continue;
         }
       } else {
-        decompressed = streamSlice;
+        decompressed = rawSlice;
       }
 
       final text = _extractTextFromPdfStream(decompressed);
       if (text.trim().isNotEmpty) {
         buffer.writeln(text);
-        streamsFound++;
-      }
-
-      // Yield event loop every 5 streams to prevent UI freezing
-      if (streamsFound % 5 == 0) {
-        await Future.delayed(Duration.zero);
       }
     }
 
-    // Fallback: If streams yielded no text (e.g. uncompressed text outside streams)
+    // Fallback if no streams returned text
     if (buffer.isEmpty) {
       final uncompressedText = _extractTextFromPdfStream(bytes);
       if (uncompressedText.trim().isNotEmpty) {
@@ -98,48 +112,113 @@ class DocumentTextExtractor {
     return _sanitizeExtractedText(buffer.toString());
   }
 
-  /// Extracts textual characters from PDF BT...ET blocks and (string) Tj / TJ operators
+  /// Extracts textual characters from PDF stream, parsing string literals,
+  /// TJ arrays, and preserving line breaks between text blocks.
   static String _extractTextFromPdfStream(Uint8List streamBytes) {
-    final StringBuffer text = StringBuffer();
-    final streamStr = latin1.decode(streamBytes);
+    final str = latin1.decode(streamBytes);
+    final sb = StringBuffer();
 
-    // Regular expressions for text operators in PDF content streams
-    final tjRegex = RegExp(r'\((.*?)\)\s*Tj');
-    final tjArrayRegex = RegExp(r'\[(.*?)\]\s*TJ');
+    int i = 0;
+    final len = str.length;
 
-    for (final match in tjRegex.allMatches(streamStr)) {
-      final raw = match.group(1);
-      if (raw != null) {
-        text.write(_unescapePdfString(raw));
-        text.write(' ');
+    while (i < len) {
+      // Newlines on block terminators or text positioning
+      if (str.startsWith('ET', i) || str.startsWith('T*', i)) {
+        sb.writeln();
+        i += 2;
+        continue;
       }
-    }
 
-    for (final match in tjArrayRegex.allMatches(streamStr)) {
-      final inner = match.group(1);
-      if (inner != null) {
-        final innerStrings = RegExp(r'\((.*?)\)').allMatches(inner);
-        for (final sMatch in innerStrings) {
-          final raw = sMatch.group(1);
-          if (raw != null) {
-            text.write(_unescapePdfString(raw));
+      if (str[i] == '(') {
+        // String literal with escaped parentheses support \( and \)
+        int j = i + 1;
+        int parenDepth = 1;
+        final strChars = StringBuffer();
+
+        while (j < len && parenDepth > 0) {
+          if (str[j] == '\\' && j + 1 < len) {
+            final next = str[j + 1];
+            if (next == '(' || next == ')' || next == '\\') {
+              strChars.write(next);
+              j += 2;
+              continue;
+            } else if (next == 'n') {
+              strChars.write('\n');
+              j += 2;
+              continue;
+            } else if (next == 'r') {
+              strChars.write('\r');
+              j += 2;
+              continue;
+            } else if (next == 't') {
+              strChars.write('\t');
+              j += 2;
+              continue;
+            }
+          }
+          if (str[j] == '(') {
+            parenDepth++;
+          } else if (str[j] == ')') {
+            parenDepth--;
+            if (parenDepth == 0) {
+              j++;
+              break;
+            }
+          }
+          strChars.write(str[j]);
+          j++;
+        }
+
+        sb.write(strChars.toString());
+        sb.write(' ');
+        i = j;
+        continue;
+      }
+
+      if (str[i] == '[') {
+        // TJ array: [ (string1) -120 (string2) ] TJ
+        int j = i + 1;
+        while (j < len && str[j] != ']') {
+          if (str[j] == '(') {
+            int k = j + 1;
+            int pDepth = 1;
+            final strChars = StringBuffer();
+            while (k < len && pDepth > 0) {
+              if (str[k] == '\\' && k + 1 < len) {
+                final next = str[k + 1];
+                if (next == '(' || next == ')' || next == '\\') {
+                  strChars.write(next);
+                  k += 2;
+                  continue;
+                }
+              }
+              if (str[k] == '(') {
+                pDepth++;
+              } else if (str[k] == ')') {
+                pDepth--;
+                if (pDepth == 0) {
+                  k++;
+                  break;
+                }
+              }
+              strChars.write(str[k]);
+              k++;
+            }
+            sb.write(strChars.toString());
+            j = k;
+          } else {
+            j++;
           }
         }
-        text.write(' ');
+        sb.write(' ');
+        i = j + 1;
+        continue;
       }
+
+      i++;
     }
 
-    return text.toString();
-  }
-
-  static String _unescapePdfString(String str) {
-    return str
-        .replaceAll(r'\)', ')')
-        .replaceAll(r'\(', '(')
-        .replaceAll(r'\\', r'\')
-        .replaceAll(r'\r', '\r')
-        .replaceAll(r'\n', '\n')
-        .replaceAll(r'\t', '\t');
+    return sb.toString();
   }
 
   /// Extracts text from Word .docx file by extracting word/document.xml

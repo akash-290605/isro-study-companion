@@ -593,12 +593,13 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
         break;
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return RepaintBoundary(
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 1.5,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -742,6 +743,7 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

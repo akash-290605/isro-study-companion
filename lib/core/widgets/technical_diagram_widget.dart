@@ -120,24 +120,26 @@ class TechnicalDiagramWidget extends StatelessWidget {
       }
     }
 
-    return Container(
-      height: height,
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: showBorder
-            ? Border.all(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                width: 1.2,
-              )
-            : null,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: childWidget,
+    return RepaintBoundary(
+      child: Container(
+        height: height,
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: showBorder
+              ? Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                  width: 1.2,
+                )
+              : null,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: childWidget,
+        ),
       ),
     );
   }

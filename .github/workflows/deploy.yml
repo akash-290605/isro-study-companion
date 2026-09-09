@@ -33,7 +33,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Web Application
-        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
+        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/" -O4 --tree-shake-icons
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3

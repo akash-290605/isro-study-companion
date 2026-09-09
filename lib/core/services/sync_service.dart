@@ -44,7 +44,7 @@ class SyncService extends ChangeNotifier {
   }
 
   void _startPeriodicSync() {
-    _syncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+    _syncTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       syncPendingData();
     });
   }

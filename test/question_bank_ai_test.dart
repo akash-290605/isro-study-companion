@@ -51,6 +51,43 @@ void main() {
       expect(q2.solution, contains('Propagation delay'));
     });
 
+    test('AIQuestionExtractorService extracts sectional textbook format with Chapter, Questions and Answers sections', () async {
+      final textbookSample = '''Chapter 1: Binary Number Systems
+Questions:
+Q1) What is weighted code? Give example.
+Q2) What is the key feature of Excess-3 code?
+(a) Self-complementary (b) Non-weighted (c) Both a and b (d) None
+Q3) In how many different ways can number 5 be represented using 2-4-2-1 code?
+
+Answers:
+A1) The weighted code will have a fixed weight for each position.
+A2) (c) Both a and b. Excess-3 code is self-complementary and non-weighted.
+A3) 2-4-2-1 represents the weights corresponding to bit positions. So the two possible ways are: 1011, 0101
+''';
+
+      final summary = await AIQuestionExtractorService.extractQuestionsFromMaterial(
+        fileName: 'Digital_Electronics_Ch1.pdf',
+        fileType: 'PDF',
+        rawText: textbookSample,
+        currentUserId: 'test_user_1',
+        existingQuestionBank: const [],
+      );
+
+      expect(summary.totalDetected, equals(3));
+      expect(summary.answersDetected, equals(3));
+      final q1 = summary.extractedQuestions[0];
+      expect(q1.questionText, contains('What is weighted code'));
+      expect(q1.solution, contains('fixed weight for each position'));
+      expect(q1.topic, equals('Binary Number Systems'));
+
+      final q2 = summary.extractedQuestions[1];
+      expect(q2.correctAnswer, equals('C'));
+      expect(q2.options.length, equals(4));
+
+      final q3 = summary.extractedQuestions[2];
+      expect(q3.solution, contains('1011, 0101'));
+    });
+
     test('AIQuestionExtractorService detects semantic duplicates against existing question bank', () {
       final existingQ = QuestionModel(
         questionId: 'q_exist_1',

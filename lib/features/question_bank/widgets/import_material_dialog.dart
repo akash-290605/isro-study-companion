@@ -113,12 +113,15 @@ class _ImportMaterialDialogState extends ConsumerState<ImportMaterialDialog> {
           _pickedBytes = bytes;
           if (_selectedFormat.contains('Images') || _selectedFormat.contains('Camera')) {
             _rawContent = base64Encode(bytes);
-          } else {
+          } else if (file.name.toLowerCase().endsWith('.txt') || _selectedFormat == 'Direct Text / Paste Paper') {
             try {
               _rawContent = utf8.decode(bytes, allowMalformed: true);
             } catch (_) {
-              _rawContent = file.name;
+              _rawContent = null;
             }
+          } else {
+            // For binary documents (PDF, DOCX, PPTX), leave _rawContent null so DocumentTextExtractor extracts it asynchronously without blocking UI
+            _rawContent = null;
           }
         });
       }

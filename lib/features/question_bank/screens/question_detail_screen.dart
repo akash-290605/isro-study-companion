@@ -11,6 +11,7 @@ import '../../../data/datasources/ai_answer_search_service.dart';
 import '../../../data/datasources/ai_solution_evaluator_service.dart';
 import '../../../data/datasources/smart_question_generator_service.dart';
 import '../../../data/models/question_model.dart';
+import '../widgets/edit_solution_dialog.dart';
 
 class QuestionDetailScreen extends ConsumerStatefulWidget {
   final String questionId;
@@ -613,9 +614,17 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
                       children: [
                         const Icon(Icons.lightbulb_rounded, color: Colors.green, size: 20),
                         const SizedBox(width: 8),
-                        Text(
-                          'Correct Answer: ${q.correctAnswer}',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green.shade900),
+                        Expanded(
+                          child: Text(
+                            'Correct Answer: ${q.correctAnswer}',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green.shade900),
+                          ),
+                        ),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                          icon: const Icon(Icons.edit_note_rounded, size: 16),
+                          label: const Text('Edit Solution', style: TextStyle(fontSize: 12)),
+                          onPressed: () => EditSolutionDialog.show(context, q),
                         ),
                       ],
                     ),
@@ -624,6 +633,30 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
                       formula: q.solution.isNotEmpty ? q.solution : 'No detailed solution provided.',
                       textStyle: const TextStyle(fontSize: 13, height: 1.4),
                     ),
+                    if (q.solutionImageBase64 != null && q.solutionImageBase64!.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Handwritten Solving Work / Solution Photo:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.green.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                          ),
+                          child: Image.memory(
+                            base64Decode(q.solutionImageBase64!),
+                            fit: BoxFit.contain,
+                            height: 240,
+                            errorBuilder: (context, error, stackTrace) => const Center(child: Text('Invalid solution image')),
+                          ),
+                        ),
+                      ),
+                    ],
                     if (q.webReferences.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       const Divider(),

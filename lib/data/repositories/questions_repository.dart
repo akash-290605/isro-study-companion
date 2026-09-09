@@ -148,6 +148,43 @@ class QuestionsRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateQuestionSolution(
+    String questionId, {
+    required String correctAnswer,
+    required String solution,
+    String? solutionImageBase64,
+    bool markAsSolved = true,
+  }) async {
+    if (_currentUserId == null) return;
+    final index = _questions.indexWhere((q) => q.questionId == questionId);
+    if (index >= 0) {
+      final current = _questions[index];
+      final updated = current.copyWith(
+        correctAnswer: correctAnswer.isNotEmpty ? correctAnswer : current.correctAnswer,
+        solution: solution,
+        solutionImageBase64: solutionImageBase64 ?? current.solutionImageBase64,
+        status: markAsSolved ? QuestionStatus.solved : current.status,
+        verificationStatus: markAsSolved ? VerificationStatus.sourceVerified : current.verificationStatus,
+        isAttempted: markAsSolved ? true : current.isAttempted,
+        isLastAttemptCorrect: markAsSolved ? true : current.isLastAttemptCorrect,
+      );
+      _questions[index] = updated;
+      await _storage.saveQuestions(_currentUserId!, _questions);
+      await _storage.enqueueAction(
+        _currentUserId!,
+        QueuedActionModel(
+          actionId: const Uuid().v4(),
+          actionType: QueuedActionType.update,
+          collectionName: 'questions',
+          documentId: questionId,
+          payload: updated.toJson(),
+          timestamp: DateTime.now(),
+        ),
+      );
+      notifyListeners();
+    }
+  }
+
   Future<void> updateQuestionStatus(String questionId, QuestionStatus status) async {
     if (_currentUserId == null) return;
     final index = _questions.indexWhere((q) => q.questionId == questionId);

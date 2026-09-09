@@ -184,6 +184,7 @@ class QuestionModel {
   final DiagramType diagramType;
   final Map<String, dynamic>? diagramData;
   final String? diagramImageBase64;
+  final String? solutionImageBase64;
   final String userNotes;
   final List<String> tags;
   final String sourceId;
@@ -216,6 +217,7 @@ class QuestionModel {
     this.diagramType = DiagramType.none,
     this.diagramData,
     this.diagramImageBase64,
+    this.solutionImageBase64,
     this.userNotes = '',
     this.tags = const [],
     required this.sourceId,
@@ -249,6 +251,7 @@ class QuestionModel {
         'diagramType': diagramType.name,
         'diagramData': diagramData,
         'diagramImageBase64': diagramImageBase64,
+        'solutionImageBase64': solutionImageBase64,
         'userNotes': userNotes,
         'tags': tags,
         'sourceId': sourceId,
@@ -308,6 +311,7 @@ class QuestionModel {
                     as Map<String, dynamic>)
             : null,
         diagramImageBase64: json['diagramImageBase64'] as String?,
+        solutionImageBase64: json['solutionImageBase64'] as String?,
         userNotes: json['userNotes'] as String? ?? '',
         tags: (json['tags'] as List<dynamic>?)
                 ?.map((e) => e.toString())
@@ -357,6 +361,7 @@ class QuestionModel {
     DiagramType? diagramType,
     Map<String, dynamic>? diagramData,
     String? diagramImageBase64,
+    String? solutionImageBase64,
     String? userNotes,
     List<String>? tags,
     String? sourceId,
@@ -389,6 +394,7 @@ class QuestionModel {
       diagramType: diagramType ?? this.diagramType,
       diagramData: diagramData ?? this.diagramData,
       diagramImageBase64: diagramImageBase64 ?? this.diagramImageBase64,
+      solutionImageBase64: solutionImageBase64 ?? this.solutionImageBase64,
       userNotes: userNotes ?? this.userNotes,
       tags: tags ?? this.tags,
       sourceId: sourceId ?? this.sourceId,

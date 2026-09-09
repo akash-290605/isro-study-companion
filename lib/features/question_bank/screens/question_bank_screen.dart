@@ -8,7 +8,9 @@ import '../../../core/utils/math_renderer.dart';
 import '../../../core/widgets/technical_diagram_widget.dart';
 import '../../../data/models/question_model.dart';
 import '../../../data/repositories/questions_repository.dart';
+import '../widgets/edit_solution_dialog.dart';
 import '../widgets/import_material_dialog.dart';
+import '../widgets/manual_question_dialog.dart';
 
 class QuestionBankScreen extends ConsumerStatefulWidget {
   const QuestionBankScreen({super.key});
@@ -233,6 +235,7 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
         ),
       ),
     );
+    ManualQuestionDialog.show(context);
   }
 
   @override
@@ -739,6 +742,27 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
               const SizedBox(height: 8),
             ],
 
+            // Solving photo indicator
+            if (q.solutionImageBase64 != null && q.solutionImageBase64!.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.assignment_turned_in_rounded, size: 14, color: Colors.green),
+                    const SizedBox(width: 4),
+                    Text('Solving Photo Attached', style: TextStyle(fontSize: 11, color: Colors.green.shade900, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
+
             // Bottom Actions & Source Info
             Row(
               children: [
@@ -749,6 +773,28 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
                 const Spacer(),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: Icon(
+                    q.solution.isEmpty ? Icons.upload_file_rounded : Icons.edit_note_rounded,
+                    size: 14,
+                    color: q.solution.isEmpty ? Colors.amber.shade900 : const Color(0xFF1E3A8A),
+                  ),
+                  label: Text(
+                    q.solution.isEmpty ? 'Upload Solution' : 'Edit Solution',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: q.solution.isEmpty ? Colors.amber.shade900 : const Color(0xFF1E3A8A),
+                    ),
+                  ),
+                  onPressed: () => EditSolutionDialog.show(context, q),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     visualDensity: VisualDensity.compact,
                   ),

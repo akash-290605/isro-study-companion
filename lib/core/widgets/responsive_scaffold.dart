@@ -33,6 +33,7 @@ final List<NavItem> appNavItems = [
 class ResponsiveScaffold extends ConsumerWidget {
   final Widget child;
   final String currentRoute;
+  static final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
   const ResponsiveScaffold({
     super.key,
@@ -47,15 +48,14 @@ class ResponsiveScaffold extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return Scaffold(
+      key: scaffoldKey,
       appBar: AppBar(
         titleSpacing: 0,
         leading: isDesktop
             ? null
-            : Builder(
-                builder: (ctx) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(ctx).openDrawer(),
-                ),
+            : IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => scaffoldKey.currentState?.openDrawer(),
               ),
         title: Padding(
           padding: EdgeInsets.only(left: isDesktop ? 16.0 : 6.0),
@@ -264,7 +264,11 @@ class ResponsiveScaffold extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(8),
-                      onTap: () => context.go(item.route),
+                      onTap: () {
+                        if (currentRoute != item.route) {
+                          context.go(item.route);
+                        }
+                      },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -377,7 +381,9 @@ class ResponsiveScaffold extends ConsumerWidget {
                   selected: isSelected,
                   onTap: () {
                     Navigator.pop(context);
-                    context.go(item.route);
+                    if (currentRoute != item.route) {
+                      context.go(item.route);
+                    }
                   },
                 );
               }).toList(),
@@ -407,19 +413,19 @@ class ResponsiveScaffold extends ConsumerWidget {
       onTap: (index) {
         switch (index) {
           case 0:
-            context.go('/');
+            if (currentRoute != '/') context.go('/');
             break;
           case 1:
-            context.go('/timer');
+            if (currentRoute != '/timer') context.go('/timer');
             break;
           case 2:
-            context.go('/syllabus');
+            if (currentRoute != '/syllabus') context.go('/syllabus');
             break;
           case 3:
-            context.go('/ai-test');
+            if (currentRoute != '/ai-test') context.go('/ai-test');
             break;
           case 4:
-            Scaffold.of(context).openDrawer();
+            scaffoldKey.currentState?.openDrawer();
             break;
         }
       },

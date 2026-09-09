@@ -505,33 +505,50 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
   }
 
   Widget _buildTopicView(SyllabusSubject subject, bool isDark) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(subject.name, style: const TextStyle(fontSize: 16)),
-        actions: [
-          IconButton(
-            tooltip: 'Add Custom Topic',
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            onPressed: () => _showAddTopicDialog(subject.id),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(
+              bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.15)),
+            ),
           ),
-          IconButton(
-            tooltip: 'Edit Subject Name',
-            icon: const Icon(Icons.drive_file_rename_outline_rounded),
-            onPressed: () => _showEditSubjectDialog(subject),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  subject.name,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Add Custom Topic',
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                onPressed: () => _showAddTopicDialog(subject.id),
+              ),
+              IconButton(
+                tooltip: 'Edit Subject Name',
+                icon: const Icon(Icons.drive_file_rename_outline_rounded),
+                onPressed: () => _showEditSubjectDialog(subject),
+              ),
+              IconButton(
+                tooltip: 'Delete Subject',
+                icon: const Icon(Icons.delete_outline_rounded),
+                onPressed: () => _confirmDeleteSubject(subject),
+              ),
+              IconButton(
+                tooltip: 'View Subject Notes',
+                icon: const Icon(Icons.edit_note_rounded),
+                onPressed: () => context.go('/notes'),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: 'Delete Subject',
-            icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: () => _confirmDeleteSubject(subject),
-          ),
-          IconButton(
-            tooltip: 'View Subject Notes',
-            icon: const Icon(Icons.edit_note_rounded),
-            onPressed: () => context.go('/notes'),
-          ),
-        ],
-      ),
-      body: subject.topics.isEmpty
+        ),
+        Expanded(
+          child: subject.topics.isEmpty
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -719,6 +736,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                 );
               },
             ),
+        ),
+      ],
     );
   }
 

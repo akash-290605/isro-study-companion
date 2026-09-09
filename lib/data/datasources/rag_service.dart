@@ -172,6 +172,7 @@ class RAGService {
       final seedList = candidateQuestions.isNotEmpty ? candidateQuestions : availableQuestionBank;
       final extraQuestions = SmartQuestionGeneratorService.generateSyncVariationsFromSeeds(
         seedQuestions: seedList,
+        targetSubjects: selectedSubjects,
         fallbackTopics: selectedTopics,
         neededCount: needed,
         testId: testId,

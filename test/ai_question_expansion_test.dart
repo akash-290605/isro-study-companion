@@ -112,5 +112,44 @@ void main() {
       expect(result.questions.length, equals(5));
       expect(result.hasInsufficientSources, isFalse);
     });
+
+    test('RAGService synthesizes subject-accurate questions for specific chosen subjects', () {
+      // Request questions for Control Systems with no pre-existing question bank
+      final result = RAGService.generateExamQuestions(
+        allSources: const [],
+        availableQuestionBank: const [],
+        selectedSourceIds: const [],
+        selectedSubjects: ['Control Systems'],
+        selectedTopics: ['Stability Analysis & Nyquist Plot'],
+        selectedSubtopics: const [],
+        difficultyMode: DifficultyMode.hard,
+        easyPercentage: 20,
+        mediumPercentage: 30,
+        hardPercentage: 50,
+        requestedCount: 4,
+        easyTime: 60,
+        mediumTime: 90,
+        hardTime: 120,
+        testId: 'test_control_domain',
+        allowAiExpansion: true,
+      );
+
+      expect(result.generatedCount, equals(4));
+      expect(result.hasInsufficientSources, isFalse);
+      for (final q in result.questions) {
+        expect(q.subject, equals('Control Systems'));
+        // Verify questions contain relevant control domain terms
+        final textAndSol = '${q.questionText} ${q.solution}';
+        final hasControlKeyword = textAndSol.contains('Nyquist') ||
+            textAndSol.contains('transfer function') ||
+            textAndSol.contains('gain margin') ||
+            textAndSol.contains('phase margin') ||
+            textAndSol.contains('damping ratio') ||
+            textAndSol.contains('state space') ||
+            textAndSol.contains('Bode') ||
+            textAndSol.contains('stability');
+        expect(hasControlKeyword, isTrue, reason: 'Expected Control Systems concept in: ${q.questionText}');
+      }
+    });
   });
 }

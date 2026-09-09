@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/services/providers.dart';
 import '../../../core/utils/math_renderer.dart';
@@ -270,7 +269,7 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
   Future<void> _openAiTopicGeneratorDialog() async {
     final qRepo = ref.read(questionsRepositoryProvider);
     final existingTopics = qRepo.questions.map((q) => q.topic).where((t) => t.isNotEmpty).toSet().toList();
-    final allTopics = [
+    final allTopics = {
       ...existingTopics,
       'Network Analysis',
       'RLC Transient Circuits',
@@ -282,7 +281,7 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
       'Op-Amp Configurations',
       'Signals & Sampling Theorem',
       'Fourier & Laplace Transforms',
-    ].toSet().toList();
+    }.toList();
 
     String selectedTopic = allTopics.first;
     int countToGen = 5;

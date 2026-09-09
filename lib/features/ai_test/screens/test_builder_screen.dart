@@ -300,7 +300,7 @@ class _TestBuilderScreenState extends ConsumerState<TestBuilderScreen> {
                       ),
                       const SizedBox(height: 8),
                       if (sourcesRepo.sources.isEmpty)
-                        const Text('No uploaded materials found. Please upload materials in Upload Hub.')
+                        const Text('No uploaded materials found. Please import materials in the Question Bank.')
                       else
                         Wrap(
                           spacing: 8,

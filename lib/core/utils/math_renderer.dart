@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+/// A robust math segment representing either plain text or mathematical TeX.
+class _MathSegment {
+  final String text;
+  final bool isMath;
+  final bool isDisplay;
+
+  const _MathSegment({
+    required this.text,
+    required this.isMath,
+    this.isDisplay = false,
+  });
+}
+
 /// Helper widget to render LaTeX equations cleanly, with fallback to styled text.
-/// Optimized to avoid blocking the JavaScript event loop on Flutter Web.
+/// Supports display math (`\[ ... \]`, `$$ ... $$`), inline math (`\( ... \)`, `$ ... $`),
+/// pure LaTeX commands (e.g. `\frac`, `\sum`, `V = IR`), engineering units, and multi-line equations.
 class MathFormulaView extends StatelessWidget {
   final String formula;
   final TextStyle? textStyle;
@@ -15,11 +29,105 @@ class MathFormulaView extends StatelessWidget {
     this.isSelectable = false,
   });
 
-  // Identifies legitimate LaTeX math expressions:
-  // Must have $...$ or specific LaTeX commands like \frac, \sqrt, \sum, \int, \times, etc.
+  /// Identifies if a string contains LaTeX / mathematical notation.
   static final RegExp _mathCmdRegex = RegExp(
-    r'(\$[^$]+\$|\\frac\{|\\sqrt\{|\\sum[_\^]|\\int[_\^]|\\times|\\cdot|\\approx|\\leq|\\geq|\\alpha|\\beta|\\omega|\\pi|\\mu|\\eta|\\theta|\\partial|\\int\b|\\sum\b|\^[0-9a-zA-Z]|\^\{[^}]+\}|_\{[^}]+\})',
+    r'(\$|\\\[|\\\]|\\\(|\\\)|\\frac|\\sqrt|\\sum|\\int|\\times|\\cdot|\\approx|\\leq|\\geq|\\alpha|\\beta|\\gamma|\\delta|\\Delta|\\epsilon|\\theta|\\lambda|\\mu|\\pi|\\rho|\\sigma|\\tau|\\omega|\\Omega|\\ohm|\\degree|\\partial|\^|_|\\begin|\\text\{)',
+    caseSensitive: false,
   );
+
+  /// Cleans and sanitizes TeX expressions for flutter_math_fork.
+  static String cleanTex(String input) {
+    var s = input.trim();
+    if (s.isEmpty) return s;
+
+    // Strip enclosing display or inline math delimiters if present
+    if ((s.startsWith(r'\[') && s.endsWith(r'\]')) ||
+        (s.startsWith(r'$$') && s.endsWith(r'$$')) ||
+        (s.startsWith(r'\(') && s.endsWith(r'\)'))) {
+      s = s.substring(2, s.length - 2).trim();
+    } else if (s.startsWith(r'$') && s.endsWith(r'$') && s.length >= 2) {
+      s = s.substring(1, s.length - 1).trim();
+    }
+
+    // Strip unescaped double backslashes for delimiters like \\[ or \\]
+    if (s.startsWith(r'\[') || s.startsWith(r'$$') || s.startsWith(r'\(')) {
+      s = s.replaceAll(r'\[', '').replaceAll(r'\]', '').trim();
+      s = s.replaceAll(r'$$', '').trim();
+      s = s.replaceAll(r'\(', '').replaceAll(r'\)', '').trim();
+    }
+
+    // Engineering symbol replacements
+    s = s.replaceAll(r'\ohm', r'\Omega');
+    s = s.replaceAll(r'\degree', r'^\circ');
+    s = s.replaceAll(r'\celsius', r'^\circ\text{C}');
+
+    // Replace unescaped % (not preceded by \) with \% so TeX parser does not drop the rest of the string as a comment
+    s = s.replaceAllMapped(RegExp(r'(?<!\\)%'), (m) => r'\%');
+
+    return s;
+  }
+
+  /// Parses text into alternating text and math segments based on LaTeX delimiters:
+  /// 1. `$$ ... $$`
+  /// 2. `\[ ... \]` or `\\[ ... \\]`
+  /// 3. `\( ... \)` or `\\( ... \\)`
+  /// 4. `$ ... $`
+  static List<_MathSegment> _parseSegments(String input) {
+    final segments = <_MathSegment>[];
+    if (input.trim().isEmpty) return segments;
+
+    // Pattern matching standard math delimiters
+    final pattern = RegExp(
+      r'(\$\$(.+?)\$\$|(?:\\[\[]|\\\\\s*\[)([\s\S]+?)(?:\\[\]]|\\\\\s*\])|(?:\\[\(]|\\\\\s*\()([\s\S]+?)(?:\\[\)]|\\\\\s*\))|\$([^\$\n]+?)\$)',
+      multiLine: true,
+    );
+
+    int lastIndex = 0;
+    for (final match in pattern.allMatches(input)) {
+      if (match.start > lastIndex) {
+        final preceding = input.substring(lastIndex, match.start);
+        if (preceding.isNotEmpty) {
+          segments.add(_MathSegment(text: preceding, isMath: false));
+        }
+      }
+
+      String content = '';
+      bool isDisplay = false;
+
+      if (match.group(2) != null) {
+        content = match.group(2)!;
+        isDisplay = true;
+      } else if (match.group(3) != null) {
+        content = match.group(3)!;
+        isDisplay = true;
+      } else if (match.group(4) != null) {
+        content = match.group(4)!;
+        isDisplay = false;
+      } else if (match.group(5) != null) {
+        content = match.group(5)!;
+        isDisplay = false;
+      }
+
+      if (content.trim().isNotEmpty) {
+        segments.add(_MathSegment(
+          text: cleanTex(content),
+          isMath: true,
+          isDisplay: isDisplay,
+        ));
+      }
+
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < input.length) {
+      final remaining = input.substring(lastIndex);
+      if (remaining.isNotEmpty) {
+        segments.add(_MathSegment(text: remaining, isMath: false));
+      }
+    }
+
+    return segments;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,77 +141,77 @@ class MathFormulaView extends StatelessWidget {
         raw.contains('<< /Type') ||
         raw.contains('<</Type');
 
-    final safeFormula = isRawBinaryDump
-        ? (raw.length > 300 ? '${raw.substring(0, 300)}... [Corrupted document stream isolated]' : raw)
-        : (raw.length > 1500 ? '${raw.substring(0, 1500)}... [Content truncated for display]' : raw);
-
-    // Fast path: If formula is binary dump or does not contain real LaTeX math commands or $...$,
-    // render standard high-speed native Text widget without invoking TeX parser!
-    if (isRawBinaryDump || !_mathCmdRegex.hasMatch(safeFormula)) {
-      return Text(
-        safeFormula,
-        style: textStyle ?? Theme.of(context).textTheme.bodyLarge,
-      );
+    if (isRawBinaryDump) {
+      final safe = raw.length > 300 ? '${raw.substring(0, 300)}... [Corrupted document stream isolated]' : raw;
+      return Text(safe, style: textStyle ?? Theme.of(context).textTheme.bodyLarge);
     }
 
-    // If formula contains inline math $...$, split and render text + math segments
-    if (safeFormula.contains(r'$')) {
-      return _buildInlineMath(context, safeFormula);
-    }
-
-    // Pure mathematical expression (e.g. Formula Bank entry)
-    try {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Math.tex(
-          safeFormula,
-          textStyle: textStyle ??
-              TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-          onErrorFallback: (error) {
-            return Text(
-              safeFormula,
-              style: textStyle ?? Theme.of(context).textTheme.bodyLarge,
-            );
-          },
-        ),
-      );
-    } catch (_) {
-      return Text(
-        safeFormula,
-        style: textStyle ?? Theme.of(context).textTheme.bodyLarge,
-      );
-    }
-  }
-
-  Widget _buildInlineMath(BuildContext context, String input) {
-    final parts = input.split(r'$');
     final defaultStyle = textStyle ?? Theme.of(context).textTheme.bodyLarge ?? const TextStyle();
 
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: List.generate(parts.length, (idx) {
-        final part = parts[idx];
-        if (part.isEmpty) return const SizedBox.shrink();
-        final isMath = idx % 2 == 1;
+    // Step 1: Check if input contains LaTeX delimiters ($$, \[, \(, $)
+    final segments = _parseSegments(raw);
 
-        if (isMath) {
-          try {
-            return Math.tex(
-              part,
-              textStyle: defaultStyle,
-              onErrorFallback: (_) => Text(part, style: defaultStyle),
-            );
-          } catch (_) {
-            return Text(part, style: defaultStyle);
+    if (segments.isNotEmpty && segments.any((s) => s.isMath)) {
+      // Check if all non-math segments are purely whitespace (e.g. user typed multiple display equations: \[ V = IR \] \[ I = V/R \])
+      final nonMathContent = segments.where((s) => !s.isMath).map((s) => s.text.trim()).join();
+      final mathSegments = segments.where((s) => s.isMath).toList();
+
+      if (nonMathContent.isEmpty && mathSegments.isNotEmpty) {
+        // Pure multi-equation presentation (like Formula Bank entries)
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: mathSegments.map((seg) {
+              return _buildTexWidget(context, seg.text, defaultStyle);
+            }).toList(),
+          ),
+        );
+      }
+
+      // Mixed text and inline / display math
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.start,
+        spacing: 4,
+        runSpacing: 4,
+        children: segments.map((seg) {
+          if (seg.isMath) {
+            return _buildTexWidget(context, seg.text, defaultStyle);
+          } else {
+            return Text(seg.text, style: defaultStyle);
           }
-        } else {
-          return Text(part, style: defaultStyle);
-        }
-      }),
-    );
+        }).toList(),
+      );
+    }
+
+    // Step 2: No delimiters found, but could be a pure TeX formula (e.g. "V = IR", "I = \frac{V}{R}", "\sum I_k = 0")
+    if (_mathCmdRegex.hasMatch(raw) || raw.contains('=')) {
+      final cleaned = cleanTex(raw);
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: _buildTexWidget(context, cleaned, defaultStyle),
+      );
+    }
+
+    // Step 3: Plain text fallback
+    return Text(raw, style: defaultStyle);
+  }
+
+  Widget _buildTexWidget(BuildContext context, String tex, TextStyle style) {
+    try {
+      return Math.tex(
+        tex,
+        textStyle: style,
+        onErrorFallback: (err) {
+          return Text(tex, style: style);
+        },
+      );
+    } catch (_) {
+      return Text(tex, style: style);
+    }
   }
 }
-

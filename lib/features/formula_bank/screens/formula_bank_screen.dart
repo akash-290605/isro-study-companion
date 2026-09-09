@@ -18,6 +18,36 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
   String? _selectedSubject;
   bool _onlyFavorites = false;
 
+  Widget _buildMathChip(
+    String code,
+    String label,
+    TextEditingController ctrl,
+    StateSetter setDialogState,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ActionChip(
+        visualDensity: VisualDensity.compact,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        label: Text(label, style: const TextStyle(fontSize: 11)),
+        onPressed: () {
+          final text = ctrl.text;
+          final sel = ctrl.selection;
+          if (sel.isValid && sel.start >= 0 && sel.end >= 0) {
+            final newText = text.replaceRange(sel.start, sel.end, code);
+            ctrl.value = TextEditingValue(
+              text: newText,
+              selection: TextSelection.collapsed(offset: sel.start + code.length),
+            );
+          } else {
+            ctrl.text = '$text $code'.trim();
+          }
+          setDialogState(() {});
+        },
+      ),
+    );
+  }
+
   void _openFormulaDialog([FormulaModel? formula]) {
     final titleCtrl = TextEditingController(text: formula?.title ?? '');
     final latexCtrl = TextEditingController(text: formula?.latexExpression ?? '');
@@ -27,79 +57,169 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(formula == null ? 'Add Formula' : 'Edit Formula'),
-        content: SizedBox(
-          width: 520,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Formula Name / Law'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: latexCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'LaTeX Expression (e.g. \\sum I_k = 0 or \\eta = 50\\%)',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          final theme = Theme.of(context);
+          final currentLatex = latexCtrl.text.trim();
+
+          return AlertDialog(
+            title: Text(formula == null ? 'Add Formula' : 'Edit Formula'),
+            content: SizedBox(
+              width: 540,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: subjectCtrl,
-                        decoration: const InputDecoration(labelText: 'Subject'),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(labelText: 'Formula Name / Law'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: latexCtrl,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'LaTeX Expression (e.g. \\sum I_k = 0 or \\[ V = IR \\])',
+                        suffixIcon: currentLatex.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () {
+                                  latexCtrl.clear();
+                                  setDialogState(() {});
+                                },
+                              )
+                            : null,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: topicCtrl,
-                        decoration: const InputDecoration(labelText: 'Topic'),
+                    const SizedBox(height: 10),
+
+                    // Live Interactive LaTeX Math Preview
+                    Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(minHeight: 56),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: currentLatex.isEmpty
+                              ? Colors.grey.withOpacity(0.2)
+                              : theme.colorScheme.primary.withOpacity(0.3),
+                        ),
                       ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.visibility_outlined, size: 14, color: theme.colorScheme.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Live Math Preview',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: currentLatex.isEmpty
+                                ? Text(
+                                    'Type or paste LaTeX to see rendered math formula here',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade500,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  )
+                                : MathFormulaView(
+                                    formula: currentLatex,
+                                    textStyle: const TextStyle(fontSize: 18),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Quick Insert Chips for Engineering LaTeX
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildMathChip(r'\[ V = IR \]', r'\[ Eq \]', latexCtrl, setDialogState),
+                          _buildMathChip(r'\frac{a}{b}', 'Fraction', latexCtrl, setDialogState),
+                          _buildMathChip(r'x^{2}', 'Power', latexCtrl, setDialogState),
+                          _buildMathChip(r'\sqrt{x}', 'Square Root', latexCtrl, setDialogState),
+                          _buildMathChip(r'\sum', 'Sum \u03A3', latexCtrl, setDialogState),
+                          _buildMathChip(r'\int', 'Integral \u222B', latexCtrl, setDialogState),
+                          _buildMathChip(r'\Omega', 'Ohm \u03A9', latexCtrl, setDialogState),
+                          _buildMathChip(r'\mu', 'Micro \u03BC', latexCtrl, setDialogState),
+                          _buildMathChip(r'\pi', 'Pi \u03C0', latexCtrl, setDialogState),
+                          _buildMathChip(r'\approx', 'Approx \u2248', latexCtrl, setDialogState),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: subjectCtrl,
+                            decoration: const InputDecoration(labelText: 'Subject'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: topicCtrl,
+                            decoration: const InputDecoration(labelText: 'Topic'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: descCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(labelText: 'Engineering Description / Context'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Engineering Description / Context'),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              if (titleCtrl.text.trim().isEmpty || latexCtrl.text.trim().isEmpty) return;
-              final user = ref.read(authRepositoryProvider).currentUser;
-              final f = FormulaModel(
-                formulaId: formula?.formulaId ?? const Uuid().v4(),
-                userId: user?.id ?? '',
-                subject: subjectCtrl.text.trim(),
-                topic: topicCtrl.text.trim(),
-                title: titleCtrl.text.trim(),
-                latexExpression: latexCtrl.text.trim(),
-                description: descCtrl.text.trim(),
-                sourceId: formula?.sourceId ?? 'custom_formula',
-                sourceName: formula?.sourceName ?? 'Personal Formula Bank',
-                sourceLocation: formula?.sourceLocation ?? 'Engineering Reference',
-                isFavorite: formula?.isFavorite ?? false,
-                createdAt: formula?.createdAt ?? DateTime.now(),
-              );
-              ref.read(formulaRepositoryProvider).saveFormula(f);
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save Formula'),
-          ),
-        ],
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () {
+                  if (titleCtrl.text.trim().isEmpty || latexCtrl.text.trim().isEmpty) return;
+                  final user = ref.read(authRepositoryProvider).currentUser;
+                  final f = FormulaModel(
+                    formulaId: formula?.formulaId ?? const Uuid().v4(),
+                    userId: user?.id ?? '',
+                    subject: subjectCtrl.text.trim(),
+                    topic: topicCtrl.text.trim(),
+                    title: titleCtrl.text.trim(),
+                    latexExpression: latexCtrl.text.trim(),
+                    description: descCtrl.text.trim(),
+                    sourceId: formula?.sourceId ?? 'custom_formula',
+                    sourceName: formula?.sourceName ?? 'Personal Formula Bank',
+                    sourceLocation: formula?.sourceLocation ?? 'Engineering Reference',
+                    isFavorite: formula?.isFavorite ?? false,
+                    createdAt: formula?.createdAt ?? DateTime.now(),
+                  );
+                  ref.read(formulaRepositoryProvider).saveFormula(f);
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Save Formula'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

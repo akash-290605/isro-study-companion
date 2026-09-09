@@ -19,15 +19,30 @@ class QuestionsRepository extends ChangeNotifier {
   int get needsReviewCount => _questions.where((q) => q.status == QuestionStatus.needsReview || q.verificationStatus == VerificationStatus.needsReview).length;
   int get partiallySolvedCount => _questions.where((q) => q.status == QuestionStatus.partiallySolved).length;
 
+  /// Identifies corrupted or raw document byte data incorrectly saved as a question
+  static bool isCorruptedQuestion(QuestionModel q) {
+    final text = q.questionText.trim();
+    if (text.startsWith('%PDF') || text.startsWith('PDF-')) return true;
+    if (text.contains('1 0 obj') && text.contains('endobj')) return true;
+    if (text.contains('<< /Type') || text.contains('<</Type') || text.contains('/Catalog')) return true;
+    if (text.contains('/Kids[') || text.contains('/MediaBox[')) return true;
+    if (text.length > 3000 && text.contains('obj') && text.contains('endobj')) return true;
+    if (text.length > 10000 && q.options.isEmpty) return true;
+    return false;
+  }
+
   void loadForUser(String userId) {
     _currentUserId = userId;
     _questions = _storage.getQuestions(userId);
     // Purge any inbuilt/starter questions
+    // Purge any inbuilt/starter questions and any corrupted document dumps
     final beforeCount = _questions.length;
     _questions.removeWhere((q) =>
         q.questionId.startsWith('q_nt_') ||
         q.questionId.startsWith('q_de_') ||
         q.sourceId.startsWith('starter_doc_'));
+        q.sourceId.startsWith('starter_doc_') ||
+        isCorruptedQuestion(q));
     if (_questions.length != beforeCount) {
       _storage.saveQuestions(userId, _questions);
     }
@@ -47,6 +62,7 @@ class QuestionsRepository extends ChangeNotifier {
     VerificationStatus? verificationStatus,
   }) {
     return _questions.where((q) {
+      if (isCorruptedQuestion(q)) return false;
       if (subject != null && subject.isNotEmpty && q.subject != subject) return false;
       if (topic != null && topic.isNotEmpty && q.topic != topic) return false;
       if (difficulty != null && q.difficulty != difficulty) return false;
@@ -71,6 +87,7 @@ class QuestionsRepository extends ChangeNotifier {
 
   Future<void> addQuestion(QuestionModel question) async {
     if (_currentUserId == null) return;
+    if (_currentUserId == null || isCorruptedQuestion(question)) return;
     _questions.insert(0, question);
     await _storage.saveQuestions(_currentUserId!, _questions);
     await _storage.enqueueAction(
@@ -90,8 +107,12 @@ class QuestionsRepository extends ChangeNotifier {
   Future<void> addQuestions(List<QuestionModel> newQuestions) async {
     if (_currentUserId == null || newQuestions.isEmpty) return;
     _questions.insertAll(0, newQuestions);
+    final validQuestions = newQuestions.where((q) => !isCorruptedQuestion(q)).toList();
+    if (validQuestions.isEmpty) return;
+    _questions.insertAll(0, validQuestions);
     await _storage.saveQuestions(_currentUserId!, _questions);
     for (final q in newQuestions) {
+    for (final q in validQuestions) {
       await _storage.enqueueAction(
         _currentUserId!,
         QueuedActionModel(

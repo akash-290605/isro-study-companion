@@ -275,6 +275,10 @@ class DocumentTextExtractor {
   }
 
   static String _extractFromPlainText(Uint8List bytes) {
+    if (_isPdf(bytes, '')) {
+      // Never treat raw PDF bytes as plain text
+      return '';
+    }
     try {
       return _sanitizeExtractedText(utf8.decode(bytes, allowMalformed: true));
     } catch (_) {
@@ -284,6 +288,15 @@ class DocumentTextExtractor {
 
   /// Removes binary noise, replacement characters, and trims line length
   static String _sanitizeExtractedText(String input) {
+    if (input.startsWith('%PDF-') ||
+        input.startsWith('PDF-') ||
+        input.contains('1 0 obj') && input.contains('endobj') ||
+        input.contains('<</Type/Catalog') ||
+        input.contains('<< /Type /Catalog')) {
+      // Raw unparsed PDF file stream detected - reject to prevent catastrophic UI freeze
+      return '';
+    }
+
     final clean = input
         .replaceAll('\u0000', '')
         .replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), '')

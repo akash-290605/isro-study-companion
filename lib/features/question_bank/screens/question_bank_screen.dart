@@ -570,6 +570,24 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
   }
 
   Widget _buildQuestionCardItem(QuestionModel q, QuestionsRepository qRepo) {
+    if (QuestionsRepository.isCorruptedQuestion(q)) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        color: Colors.red.shade50,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: ListTile(
+          leading: const Icon(Icons.warning_amber_rounded, color: Colors.red),
+          title: const Text('Corrupted Document Stream Isolated', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
+          subtitle: const Text('Contains unparsed document stream data. Click to remove permanently.', style: TextStyle(fontSize: 12)),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_forever, color: Colors.red),
+            tooltip: 'Delete Corrupted Entry',
+            onPressed: () => qRepo.deleteQuestion(q.questionId),
+          ),
+        ),
+      );
+    }
+
     Color diffColor = Colors.orange;
     if (q.difficulty == Difficulty.easy) diffColor = Colors.green;
     if (q.difficulty == Difficulty.hard) diffColor = Colors.red;

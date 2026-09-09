@@ -24,12 +24,28 @@ class MathFormulaView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (formula.trim().isEmpty) return const SizedBox.shrink();
+    final raw = formula.trim();
+    if (raw.isEmpty) return const SizedBox.shrink();
 
     // Fast path: If formula does not contain real LaTeX math commands or $...$,
+    // Prevent catastrophic layout freeze on raw document / binary stream dumps
+    final bool isRawBinaryDump = raw.startsWith('%PDF') ||
+        raw.startsWith('PDF-') ||
+        raw.contains('1 0 obj') ||
+        raw.contains('<< /Type') ||
+        raw.contains('<</Type');
+
+    final safeFormula = isRawBinaryDump
+        ? (raw.length > 300 ? '${raw.substring(0, 300)}... [Corrupted document stream isolated]' : raw)
+        : (raw.length > 1500 ? '${raw.substring(0, 1500)}... [Content truncated for display]' : raw);
+
+    // Fast path: If formula is binary dump or does not contain real LaTeX math commands or $...$,
     // render standard high-speed native Text widget without invoking TeX parser!
     if (!_mathCmdRegex.hasMatch(formula)) {
+    if (isRawBinaryDump || !_mathCmdRegex.hasMatch(safeFormula)) {
       return Text(
         formula,
+        safeFormula,
         style: textStyle ?? Theme.of(context).textTheme.bodyLarge,
       );
     }
@@ -37,6 +53,8 @@ class MathFormulaView extends StatelessWidget {
     // If formula contains inline math $...$, split and render text + math segments
     if (formula.contains(r'$')) {
       return _buildInlineMath(context);
+    if (safeFormula.contains(r'$')) {
+      return _buildInlineMath(context, safeFormula);
     }
 
     // Pure mathematical expression (e.g. Formula Bank entry)
@@ -45,6 +63,7 @@ class MathFormulaView extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Math.tex(
           formula,
+          safeFormula,
           textStyle: textStyle ??
               TextStyle(
                 fontSize: 16,
@@ -53,6 +72,7 @@ class MathFormulaView extends StatelessWidget {
           onErrorFallback: (error) {
             return Text(
               formula,
+              safeFormula,
               style: textStyle ?? Theme.of(context).textTheme.bodyLarge,
             );
           },
@@ -61,6 +81,7 @@ class MathFormulaView extends StatelessWidget {
     } catch (_) {
       return Text(
         formula,
+        safeFormula,
         style: textStyle ?? Theme.of(context).textTheme.bodyLarge,
       );
     }
@@ -68,6 +89,8 @@ class MathFormulaView extends StatelessWidget {
 
   Widget _buildInlineMath(BuildContext context) {
     final parts = formula.split(r'$');
+  Widget _buildInlineMath(BuildContext context, String input) {
+    final parts = input.split(r'$');
     final defaultStyle = textStyle ?? Theme.of(context).textTheme.bodyLarge ?? const TextStyle();
 
     return Wrap(

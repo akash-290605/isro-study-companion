@@ -207,6 +207,15 @@ class AIQuestionExtractorService {
       }
 
       for (final rq in chapterQuestions) {
+        final qTextTrim = rq.text.trim();
+        if (qTextTrim.startsWith('%PDF') ||
+            qTextTrim.startsWith('PDF-') ||
+            qTextTrim.contains('1 0 obj') ||
+            qTextTrim.contains('<< /Type') ||
+            qTextTrim.contains('<</Type')) {
+          continue;
+        }
+
         final ansText = chapterAnswers[rq.num] ?? '';
         final isUnknown = ansText.isEmpty;
 
@@ -349,16 +358,34 @@ class AIQuestionExtractorService {
 
     void flushQuestion() {
       if (currentQ.trim().isNotEmpty) {
+      final qTrim = currentQ.trim();
+      if (qTrim.isNotEmpty) {
+        if (qTrim.startsWith('%PDF') ||
+            qTrim.startsWith('PDF-') ||
+            qTrim.contains('1 0 obj') ||
+            qTrim.contains('<< /Type') ||
+            qTrim.contains('<</Type') ||
+            (qTrim.length > 5000 && currentOpts.isEmpty)) {
+          currentQ = '';
+          currentOpts = [];
+          currentAns = '';
+          currentSol = '';
+          return;
+        }
+
         final isUnknown = currentAns.trim().isEmpty || currentAns.toLowerCase().contains('unknown');
         final extractedOpts = _extractInlineOptions(currentQ);
+        final extractedOpts = _extractInlineOptions(qTrim);
         final opts = extractedOpts.isNotEmpty ? extractedOpts : currentOpts;
         final hasOpts = opts.length >= 2;
         final diag = _inferDiagram(currentQ, currentSol);
+        final diag = _inferDiagram(qTrim, currentSol);
 
         result.add(QuestionModel(
           questionId: 'ext_${_uuid.v4()}',
           userId: userId,
           questionText: currentQ.trim(),
+          questionText: qTrim,
           options: hasOpts ? opts : const [],
           correctAnswer: isUnknown ? 'ANSWER UNKNOWN' : _extractConciseAnswer(currentAns, opts),
           solution: currentSol.isNotEmpty ? currentSol.trim() : 'Extracted from source document.',

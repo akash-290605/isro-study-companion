@@ -3,6 +3,7 @@ import '../../core/constants/app_constants.dart';
 import '../models/question_model.dart';
 import '../models/source_model.dart';
 import '../models/test_model.dart';
+import 'smart_question_generator_service.dart';
 
 class RAGGenerationResult {
   final List<TestQuestionModel> questions;
@@ -84,6 +85,7 @@ class RAGService {
     required int mediumTime,
     required int hardTime,
     required String testId,
+    bool allowAiExpansion = false,
   }) {
     // 1. Retrieve strictly relevant source chunks
     final relevantChunks = filterRelevantChunks(
@@ -164,6 +166,23 @@ class RAGService {
       }
     }
 
+    // 4. Auto-generate / search similar questions using AI when materials have fewer questions than requested
+    if (allowAiExpansion && generatedList.length < requestedCount) {
+      final needed = requestedCount - generatedList.length;
+      final seedList = candidateQuestions.isNotEmpty ? candidateQuestions : availableQuestionBank;
+      final extraQuestions = SmartQuestionGeneratorService.generateSyncVariationsFromSeeds(
+        seedQuestions: seedList,
+        fallbackTopics: selectedTopics,
+        neededCount: needed,
+        testId: testId,
+        easyTime: easyTime,
+        mediumTime: mediumTime,
+        hardTime: hardTime,
+        difficultyMode: difficultyMode,
+      );
+      generatedList.addAll(extraQuestions);
+    }
+
     // Check availability against requested count
     final actualCount = generatedList.length;
     final hasInsufficient = actualCount < requestedCount;
@@ -178,6 +197,9 @@ class RAGService {
           'Never fabricating questions outside user sources.';
     } else {
       statusMessage = '✓ $requestedCount / $requestedCount QUESTIONS GENERATED FROM SELECTED SOURCES.';
+      statusMessage = allowAiExpansion
+          ? '✓ $requestedCount / $requestedCount QUESTIONS GENERATED (INCLUDING AI WEB-GROUNDED QUESTIONS).'
+          : '✓ $requestedCount / $requestedCount QUESTIONS GENERATED FROM SELECTED SOURCES.';
     }
 
     // Topic & Difficulty breakdown calculation

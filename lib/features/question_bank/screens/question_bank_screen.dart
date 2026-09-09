@@ -11,6 +11,7 @@ import '../../../data/repositories/questions_repository.dart';
 import '../widgets/edit_solution_dialog.dart';
 import '../widgets/import_material_dialog.dart';
 import '../widgets/manual_question_dialog.dart';
+import '../../../data/datasources/smart_question_generator_service.dart';
 
 class QuestionBankScreen extends ConsumerStatefulWidget {
   const QuestionBankScreen({super.key});
@@ -42,30 +43,249 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
   }
 
   void _openCreateQuestionDialog() {
-    final textCtrl = TextEditingController();
-    final optACtrl = TextEditingController();
-    final optBCtrl = TextEditingController();
-    final optCCtrl = TextEditingController();
-    final optDCtrl = TextEditingController();
-    final solCtrl = TextEditingController();
-    final topicCtrl = TextEditingController(text: 'RLC Circuits');
-    String subject = 'Network Theory';
-    String correctAns = 'A';
-    Difficulty diff = Difficulty.medium;
-    QuestionType qType = QuestionType.mcq;
-    DiagramType dType = DiagramType.none;
+    ManualQuestionDialog.show(context);
+  }
 
-    final subjects = [
-      'Network Theory',
-      'Digital Electronics',
-      'Signals & Systems',
-      'Electronic Devices & Circuits',
-      'Control Systems',
-      'Communications',
-      'Electromagnetics',
-      'Computer Science / Microprocessors',
-      'General Engineering Mathematics',
-    ];
+  Future<void> _openAiSearchSimilarDialog(QuestionModel seedQuestion) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xFF7C3AED)),
+                SizedBox(height: 16),
+                Text('Searching & Generating Similar Questions...', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 6),
+                Text('Grounded in engineering curriculum & verified web references', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final userId = ref.read(authRepositoryProvider).currentUser?.id ?? 'user';
+    List<QuestionModel> similarQuestions = [];
+    try {
+      similarQuestions = await SmartQuestionGeneratorService.searchAndGenerateSimilarQuestions(
+        seedQuestion: seedQuestion,
+        count: 3,
+        currentUserId: userId,
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // dismiss loading
+
+    if (similarQuestions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate similar questions. Please try again.')),
+      );
+      return;
+    }
+
+    final Set<String> selectedIds = similarQuestions.map((q) => q.questionId).toSet();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('AI Searched Similar Questions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Based on: ${seedQuestion.topic.isNotEmpty ? seedQuestion.topic : seedQuestion.subject}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 650,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F3FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFDDD6FE)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Color(0xFF7C3AED)),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'These questions have been synthesized with verified step-by-step solutions and web citations based on your seed question.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF5B21B6)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...similarQuestions.map((simQ) {
+                    final isSelected = selectedIds.contains(simQ.questionId);
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: isSelected ? const Color(0xFF7C3AED) : Colors.grey.shade300,
+                          width: isSelected ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: isSelected,
+                                  activeColor: const Color(0xFF7C3AED),
+                                  onChanged: (v) {
+                                    setModalState(() {
+                                      if (v == true) {
+                                        selectedIds.add(simQ.questionId);
+                                      } else {
+                                        selectedIds.remove(simQ.questionId);
+                                      }
+                                    });
+                                  },
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.purple.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    simQ.questionType.label,
+                                    style: TextStyle(fontSize: 10, color: Colors.purple.shade800, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  simQ.difficulty.label,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: simQ.difficulty == Difficulty.easy ? Colors.green : Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(simQ.questionText, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            if (simQ.options.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              ...simQ.options.map((opt) => Padding(
+                                padding: const EdgeInsets.only(left: 8, bottom: 2),
+                                child: Text(opt, style: const TextStyle(fontSize: 12)),
+                              )),
+                            ],
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.check_circle_rounded, size: 14, color: Colors.green),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Answer: ${simQ.correctAnswer} — ${simQ.solution}',
+                                      style: TextStyle(fontSize: 11, color: Colors.green.shade900),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.add_task_rounded, size: 16),
+              label: Text('Add ${selectedIds.length} to Question Bank'),
+              onPressed: selectedIds.isEmpty
+                  ? null
+                  : () async {
+                      final toAdd = similarQuestions.where((q) => selectedIds.contains(q.questionId)).toList();
+                      await ref.read(questionsRepositoryProvider).addQuestions(toAdd);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Successfully added ${toAdd.length} AI-searched questions to Question Bank!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAiTopicGeneratorDialog() async {
+    final qRepo = ref.read(questionsRepositoryProvider);
+    final existingTopics = qRepo.questions.map((q) => q.topic).where((t) => t.isNotEmpty).toSet().toList();
+    final allTopics = [
+      ...existingTopics,
+      'Network Analysis',
+      'RLC Transient Circuits',
+      'Two-Port Networks',
+      'Boolean Algebra & Logic Gates',
+      'Sequential Circuits & Timing',
+      'Control Systems & Nyquist Analysis',
+      'Bode Plots & Frequency Response',
+      'Op-Amp Configurations',
+      'Signals & Sampling Theorem',
+      'Fourier & Laplace Transforms',
+    ].toSet().toList();
+
+    String selectedTopic = allTopics.first;
+    int countToGen = 5;
 
     showDialog(
       context: context,
@@ -73,169 +293,81 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
         builder: (ctx, setDlgState) => AlertDialog(
           title: const Row(
             children: [
-              Icon(Icons.add_circle_outline, color: Color(0xFF1E3A8A)),
+              Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED)),
               SizedBox(width: 8),
-              Text('Create New Question', style: TextStyle(fontSize: 17)),
+              Text('AI Question Generator', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           content: SizedBox(
-            width: 580,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: subject,
-                          decoration: const InputDecoration(labelText: 'Subject', border: OutlineInputBorder()),
-                          items: subjects.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis))).toList(),
-                          onChanged: (v) => setDlgState(() => subject = v!),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: topicCtrl,
-                          decoration: const InputDecoration(labelText: 'Topic', border: OutlineInputBorder()),
-                        ),
-                      ),
-                    ],
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Auto-generate syllabus-aligned questions with verified solutions and web citations to expand your Question Bank:',
+                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: selectedTopic,
+                  decoration: const InputDecoration(
+                    labelText: 'Engineering Topic',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<Difficulty>(
-                          value: diff,
-                          decoration: const InputDecoration(labelText: 'Difficulty', border: OutlineInputBorder()),
-                          items: Difficulty.values.map((d) => DropdownMenuItem(value: d, child: Text(d.label))).toList(),
-                          onChanged: (v) => setDlgState(() => diff = v!),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<QuestionType>(
-                          value: qType,
-                          decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
-                          items: QuestionType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
-                          onChanged: (v) => setDlgState(() => qType = v!),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<DiagramType>(
-                          value: dType,
-                          decoration: const InputDecoration(labelText: 'Diagram', border: OutlineInputBorder()),
-                          items: DiagramType.values.map((dt) => DropdownMenuItem(value: dt, child: Text(dt.name))).toList(),
-                          onChanged: (v) => setDlgState(() => dType = v!),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: textCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: r'Question Text (Supports LaTeX e.g. $f_0 = \frac{1}{2\pi\sqrt{LC}}$)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Options:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  TextField(controller: optACtrl, decoration: const InputDecoration(labelText: 'Option A', border: OutlineInputBorder(), isDense: true)),
-                  const SizedBox(height: 6),
-                  TextField(controller: optBCtrl, decoration: const InputDecoration(labelText: 'Option B', border: OutlineInputBorder(), isDense: true)),
-                  const SizedBox(height: 6),
-                  TextField(controller: optCCtrl, decoration: const InputDecoration(labelText: 'Option C', border: OutlineInputBorder(), isDense: true)),
-                  const SizedBox(height: 6),
-                  TextField(controller: optDCtrl, decoration: const InputDecoration(labelText: 'Option D', border: OutlineInputBorder(), isDense: true)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text('Correct Answer:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 12),
-                      DropdownButton<String>(
-                        value: correctAns,
-                        items: const [
-                          DropdownMenuItem(value: 'A', child: Text('A')),
-                          DropdownMenuItem(value: 'B', child: Text('B')),
-                          DropdownMenuItem(value: 'C', child: Text('C')),
-                          DropdownMenuItem(value: 'D', child: Text('D')),
-                        ],
-                        onChanged: (v) => setDlgState(() => correctAns = v!),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: solCtrl,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Explanation / Solution',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
+                  items: allTopics.map((t) => DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis))).toList(),
+                  onChanged: (v) => setDlgState(() => selectedTopic = v!),
+                ),
+                const SizedBox(height: 14),
+                const Text('Number of Questions to Generate:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  children: [3, 5, 10].map((c) {
+                    return ChoiceChip(
+                      label: Text('$c Questions'),
+                      selected: countToGen == c,
+                      onSelected: (_) => setDlgState(() => countToGen = c),
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A8A),
+                backgroundColor: const Color(0xFF7C3AED),
                 foregroundColor: Colors.white,
               ),
+              icon: const Icon(Icons.bolt_rounded, size: 16),
+              label: const Text('Generate Now'),
               onPressed: () async {
-                if (textCtrl.text.trim().isEmpty) return;
-
-                final userId = ref.read(authRepositoryProvider).currentUser?.id ?? 'user';
-                final newQ = QuestionModel(
-                  questionId: 'q_${const Uuid().v4()}',
-                  userId: userId,
-                  questionText: textCtrl.text.trim(),
-                  options: [
-                    'A. ${optACtrl.text.trim()}',
-                    'B. ${optBCtrl.text.trim()}',
-                    'C. ${optCCtrl.text.trim()}',
-                    'D. ${optDCtrl.text.trim()}',
-                  ],
-                  correctAnswer: correctAns,
-                  solution: solCtrl.text.trim(),
-                  subject: subject,
-                  topic: topicCtrl.text.trim(),
-                  difficulty: diff,
-                  questionType: qType,
-                  status: QuestionStatus.unsolved,
-                  verificationStatus: VerificationStatus.sourceVerified,
-                  diagramType: dType,
-                  sourceId: 'manual',
-                  sourceName: 'Created by User',
-                  sourceLocation: 'Personal Question Bank',
-                  sourceChunk: '',
+                Navigator.pop(ctx);
+                final dummySeed = QuestionModel(
+                  questionId: 'seed_gen',
+                  userId: 'user',
+                  sourceId: 'syllabus',
+                  sourceName: 'ISRO ECE Syllabus',
+                  questionText: 'Topic question on $selectedTopic',
+                  options: const [],
+                  correctAnswer: 'A',
+                  subject: 'Electronics & Communication',
+                  topic: selectedTopic,
                   createdAt: DateTime.now(),
                 );
-
-                await ref.read(questionsRepositoryProvider).addQuestion(newQ);
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Question added successfully!'), backgroundColor: Colors.green),
-                  );
-                }
+                await _openAiSearchSimilarDialog(dummySeed);
               },
-              child: const Text('Save Question'),
             ),
           ],
         ),
       ),
     );
-    ManualQuestionDialog.show(context);
   }
 
   @override
@@ -273,6 +405,17 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text('Add Question'),
             onPressed: _openCreateQuestionDialog,
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF7C3AED),
+              side: const BorderSide(color: Color(0xFF7C3AED)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+            label: const Text('AI Question Generator'),
+            onPressed: _openAiTopicGeneratorDialog,
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
@@ -771,6 +914,17 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
                 const Spacer(),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: const Color(0xFF7C3AED),
+                  ),
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 14),
+                  label: const Text('AI Search Similar', style: TextStyle(fontSize: 12)),
+                  onPressed: () => _openAiSearchSimilarDialog(q),
+                ),
+                const SizedBox(width: 6),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

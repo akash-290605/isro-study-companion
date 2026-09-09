@@ -34,6 +34,7 @@ class _TestBuilderScreenState extends ConsumerState<TestBuilderScreen> {
   double _negativeMarks = AppConstants.defaultNegativeMarks;
   bool _negativeMarkingEnabled = AppConstants.defaultNegativeMarkingEnabled;
   bool _strictModeNoPrevious = false;
+  bool _allowAiExpansion = true;
 
   bool _isGenerating = false;
 
@@ -78,6 +79,7 @@ class _TestBuilderScreenState extends ConsumerState<TestBuilderScreen> {
     final testId = const Uuid().v4();
 
     // Execute Strict RAG Generation and Validation
+    // Execute Strict RAG Generation and Validation with optional AI Expansion
     final result = RAGService.generateExamQuestions(
       allSources: sources,
       availableQuestionBank: questions,
@@ -94,6 +96,7 @@ class _TestBuilderScreenState extends ConsumerState<TestBuilderScreen> {
       mediumTime: _mediumTime,
       hardTime: _hardTime,
       testId: testId,
+      allowAiExpansion: _allowAiExpansion,
     );
 
     setState(() => _isGenerating = false);
@@ -261,6 +264,42 @@ class _TestBuilderScreenState extends ConsumerState<TestBuilderScreen> {
                       ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // AI Question Auto-Expansion Switch Card
+              Card(
+                color: _allowAiExpansion ? const Color(0xFFF0FDF4) : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: _allowAiExpansion ? Colors.green.shade300 : Colors.grey.shade300,
+                  ),
+                ),
+                child: SwitchListTile(
+                  title: Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        color: _allowAiExpansion ? Colors.green.shade700 : Colors.grey,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'AI Auto-Expansion & Web Search Questions',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    _allowAiExpansion
+                        ? 'Active: If your Question Bank has fewer questions than requested, AI automatically searches and generates verified questions with solutions so you never get blocked by "insufficient questions".'
+                        : 'Strict Mode: Generates questions exclusively from exact matching Question Bank entries.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                  value: _allowAiExpansion,
+                  onChanged: (val) => setState(() => _allowAiExpansion = val),
                 ),
               ),
               const SizedBox(height: 16),

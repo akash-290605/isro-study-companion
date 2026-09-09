@@ -254,6 +254,132 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
     );
   }
 
+  Future<void> _openAiSearchBatchDialog(QuestionModel seedQuestion) async {
+    setState(() => _isGeneratingVariation = true);
+    final userId = ref.read(authRepositoryProvider).currentUser?.id ?? 'user';
+    List<QuestionModel> similarQuestions = [];
+    try {
+      similarQuestions = await SmartQuestionGeneratorService.searchAndGenerateSimilarQuestions(
+        seedQuestion: seedQuestion,
+        count: 3,
+        currentUserId: userId,
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() => _isGeneratingVariation = false);
+
+    if (similarQuestions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate similar questions. Please try again.')),
+      );
+      return;
+    }
+
+    final Set<String> selectedIds = similarQuestions.map((q) => q.questionId).toSet();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('AI Searched Similar Questions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('Based on: ${seedQuestion.topic}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 600,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: similarQuestions.map((simQ) {
+                  final isSelected = selectedIds.contains(simQ.questionId);
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                        color: isSelected ? const Color(0xFF7C3AED) : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: isSelected,
+                                activeColor: const Color(0xFF7C3AED),
+                                onChanged: (v) {
+                                  setModalState(() {
+                                    if (v == true) {
+                                      selectedIds.add(simQ.questionId);
+                                    } else {
+                                      selectedIds.remove(simQ.questionId);
+                                    }
+                                  });
+                                },
+                              ),
+                              Text(simQ.questionType.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                              const Spacer(),
+                              Text(simQ.difficulty.label, style: const TextStyle(fontSize: 11)),
+                            ],
+                          ),
+                          Text(simQ.questionText, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
+                            child: Text('Answer: ${simQ.correctAnswer} — ${simQ.solution}', style: TextStyle(fontSize: 11, color: Colors.green.shade900)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.add_task_rounded, size: 16),
+              label: Text('Add ${selectedIds.length} to Question Bank'),
+              onPressed: selectedIds.isEmpty
+                  ? null
+                  : () async {
+                      final toAdd = similarQuestions.where((q) => selectedIds.contains(q.questionId)).toList();
+                      await ref.read(questionsRepositoryProvider).addQuestions(toAdd);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Added ${toAdd.length} questions to Question Bank!'), backgroundColor: Colors.green),
+                        );
+                      }
+                    },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _bookmarkForRevision(QuestionModel q) async {
     final revRepo = ref.read(revisionRepositoryProvider);
 
@@ -986,6 +1112,15 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
                     icon: const Icon(Icons.calculate_rounded, size: 16),
                     label: const Text('Numerical Problem'),
                     onPressed: () => _generateVariation(q, VariationType.numerical),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C3AED),
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                    label: const Text('AI Search 3 Similar Questions'),
+                    onPressed: () => _openAiSearchBatchDialog(q),
                   ),
                 ],
               ),

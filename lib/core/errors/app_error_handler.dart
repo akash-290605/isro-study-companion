@@ -15,7 +15,11 @@ class AppErrorHandler {
         str.contains('failed host lookup')) {
       return 'Network connection issue. Changes will be saved locally and synchronized once reconnected.';
     }
-    if (str.contains('user-not-found') || str.contains('wrong-password') || str.contains('invalid-credential')) {
+    if (str.contains('incorrect password') ||
+        str.contains('user-not-found') ||
+        str.contains('wrong-password') ||
+        str.contains('invalid-credential') ||
+        str.contains('invalid credential')) {
       return 'Invalid email or password. Please verify your credentials.';
     }
     if (str.contains('email-already-in-use')) {
@@ -34,6 +38,10 @@ class AppErrorHandler {
     }
     if (str.contains('url')) {
       return 'Unable to access this URL directly. Please copy-paste the content using the Manual Text Entry section.';
+    }
+    if (error is Exception) {
+      final msg = error.toString().replaceFirst('Exception: ', '').trim();
+      if (msg.isNotEmpty) return msg;
     }
 
     return 'Something went wrong. Please check your connection and try again.';

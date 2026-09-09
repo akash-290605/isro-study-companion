@@ -240,13 +240,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       OutlinedButton.icon(
                         icon: const Icon(Icons.flash_on_rounded, color: Colors.amber),
                         label: const Text('Offline Demo / Quick Start'),
-                        onPressed: () async {
-                          await ref.read(authRepositoryProvider).signInWithEmailPassword(
-                                email: 'isro_aspirant@companion.edu',
-                                password: 'demo_password',
-                              );
-                          if (!context.mounted) return;
-                          context.go('/');
+                        onPressed: () {
+                          _emailCtrl.text = 'isro_aspirant@companion.edu';
+                          _passCtrl.text = 'isro2026';
+                          _handleLogin();
                         },
                       ),
                       const SizedBox(height: 20),

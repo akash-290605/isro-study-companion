@@ -11,10 +11,10 @@ class DefaultFirebaseOptions {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
+      case TargetPlatform.windows:
+        return windows;
       default:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions are not supported for this platform.',
-        );
+        return web;
     }
   }
 
@@ -32,6 +32,15 @@ class DefaultFirebaseOptions {
     appId: '1:484826214342:android:51f6c094a0ff709cdaccc7',
     messagingSenderId: '484826214342',
     projectId: 'isro-study-companion-cf08a',
+    storageBucket: 'isro-study-companion-cf08a.firebasestorage.app',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyD0NBixQrHb33tZMJrsydnyssNyGKEU0ew',
+    appId: '1:484826214342:web:8a1d289365db65c2daccc7',
+    messagingSenderId: '484826214342',
+    projectId: 'isro-study-companion-cf08a',
+    authDomain: 'isro-study-companion-cf08a.firebaseapp.com',
     storageBucket: 'isro-study-companion-cf08a.firebasestorage.app',
   );
 }

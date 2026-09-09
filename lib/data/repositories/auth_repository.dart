@@ -54,54 +54,93 @@ class AuthRepository extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPassword = password.trim();
+
+    if (cleanEmail.isEmpty || cleanPassword.isEmpty) {
+      throw Exception('Please enter both your email and password.');
+    }
+
     _isLoading = true;
     notifyListeners();
 
     try {
+      // 1. Attempt Cloud Firebase Authentication if Firebase is available
       if (Firebase.apps.isNotEmpty) {
-        final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: email.trim(),
-          password: password,
-        );
-        final fbUser = cred.user;
-        if (fbUser != null) {
-          var user = _storage.getUser(fbUser.uid);
-          user ??= UserModel(
-            id: fbUser.uid,
-            email: fbUser.email ?? email,
-            displayName: fbUser.displayName ?? email.split('@').first,
-            createdAt: DateTime.now(),
-            lastLoginAt: DateTime.now(),
+        try {
+          final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: cleanEmail,
+            password: cleanPassword,
           );
-          _currentUser = user.copyWith(lastLoginAt: DateTime.now());
-          await _storage.saveUser(_currentUser!);
-          await _storage.setCurrentUserId(_currentUser!.id);
+          final fbUser = cred.user;
+          if (fbUser != null) {
+            var user = _storage.getUser(fbUser.uid);
+            user ??= UserModel(
+              id: fbUser.uid,
+              email: fbUser.email ?? cleanEmail,
+              displayName: fbUser.displayName ?? cleanEmail.split('@').first,
+              createdAt: DateTime.now(),
+              lastLoginAt: DateTime.now(),
+            );
+            _currentUser = user.copyWith(lastLoginAt: DateTime.now());
+            await _storage.saveUser(_currentUser!);
+            await _storage.setCurrentUserId(_currentUser!.id);
+            // Cache credentials for verified offline continuity
+            await _storage.saveCredentials(
+              cleanEmail,
+              LocalStorageService.hashPassword(cleanPassword),
+              fbUser.uid,
+            );
+
+            _isLoading = false;
+            notifyListeners();
+            return;
+          }
+        } on FirebaseAuthException {
+          // CRITICAL: Cloud server explicitly rejected credentials (wrong password, user not found, etc.)
+          // Never swallow or bypass with a mock user!
           _isLoading = false;
           notifyListeners();
-          return;
+          rethrow;
+        } catch (_) {
+          // Non-auth error (e.g. network failure / connection refused)
+          // Proceed to check if user has local verified credentials
         }
       }
-    } catch (_) {
-      // If Firebase fails or is not connected, fallback to local offline mode
+
+      // 2. Strict Offline Authentication Verification
+      final verifiedUserId = _storage.verifyPassword(cleanEmail, cleanPassword);
+      if (verifiedUserId == null) {
+        _isLoading = false;
+        notifyListeners();
+        if (_storage.hasAccount(cleanEmail)) {
+          throw Exception('Incorrect password. Please verify your credentials.');
+        } else {
+          throw Exception('No account found for $cleanEmail. Please register first.');
+        }
+      }
+
+      var user = _storage.getUser(verifiedUserId);
+      user ??= UserModel(
+        id: verifiedUserId,
+        email: cleanEmail,
+        displayName: cleanEmail.split('@').first,
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+        streakDays: 1,
+      );
+
+      _currentUser = user.copyWith(lastLoginAt: DateTime.now());
+      await _storage.saveUser(_currentUser!);
+      await _storage.setCurrentUserId(_currentUser!.id);
+      _isLoading = false;
+      notifyListeners();
+    } finally {
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
-
-    // Local / Offline authentication fallback
-    final mockUid = 'user_${email.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-    var user = _storage.getUser(mockUid);
-    user ??= UserModel(
-      id: mockUid,
-      email: email.trim(),
-      displayName: email.split('@').first,
-      createdAt: DateTime.now(),
-      lastLoginAt: DateTime.now(),
-      streakDays: 12, // Starter motivational streak
-    );
-
-    _currentUser = user.copyWith(lastLoginAt: DateTime.now());
-    await _storage.saveUser(_currentUser!);
-    await _storage.setCurrentUserId(_currentUser!.id);
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> registerWithEmailPassword({
@@ -109,62 +148,112 @@ class AuthRepository extends ChangeNotifier {
     required String password,
     required String displayName,
   }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPassword = password.trim();
+    final cleanName = displayName.trim();
+
+    if (cleanEmail.isEmpty || cleanPassword.isEmpty || cleanName.isEmpty) {
+      throw Exception('Full Name, Email, and Password are all required.');
+    }
+    if (!cleanEmail.contains('@') || !cleanEmail.contains('.')) {
+      throw Exception('Please enter a valid email address.');
+    }
+    if (cleanPassword.length < 6) {
+      throw Exception('Password must be at least 6 characters.');
+    }
+
     _isLoading = true;
     notifyListeners();
 
     try {
+      // 1. Attempt Cloud Firebase Authentication Registration
       if (Firebase.apps.isNotEmpty) {
-        final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email.trim(),
-          password: password,
-        );
-        final fbUser = cred.user;
-        if (fbUser != null) {
-          await fbUser.updateDisplayName(displayName.trim());
-          final user = UserModel(
-            id: fbUser.uid,
-            email: fbUser.email ?? email,
-            displayName: displayName.trim(),
-            createdAt: DateTime.now(),
-            lastLoginAt: DateTime.now(),
+        try {
+          final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: cleanEmail,
+            password: cleanPassword,
           );
-          _currentUser = user;
-          await _storage.saveUser(_currentUser!);
-          await _storage.setCurrentUserId(_currentUser!.id);
+          final fbUser = cred.user;
+          if (fbUser != null) {
+            await fbUser.updateDisplayName(cleanName);
+            final user = UserModel(
+              id: fbUser.uid,
+              email: fbUser.email ?? cleanEmail,
+              displayName: cleanName,
+              createdAt: DateTime.now(),
+              lastLoginAt: DateTime.now(),
+            );
+            _currentUser = user;
+            await _storage.saveUser(_currentUser!);
+            await _storage.setCurrentUserId(_currentUser!.id);
+            await _storage.saveCredentials(
+              cleanEmail,
+              LocalStorageService.hashPassword(cleanPassword),
+              fbUser.uid,
+            );
+
+            _isLoading = false;
+            notifyListeners();
+            return;
+          }
+        } on FirebaseAuthException {
+          // Cloud registration failure (e.g. email-already-in-use, weak-password)
           _isLoading = false;
           notifyListeners();
-          return;
+          rethrow;
+        } catch (_) {
+          // Network or offline error - proceed to local registration
         }
       }
-    } catch (_) {
-      // Fallback to local
+
+      // 2. Strict Offline Account Creation
+      if (_storage.hasAccount(cleanEmail)) {
+        _isLoading = false;
+        notifyListeners();
+        throw Exception('An account with $cleanEmail already exists. Please sign in instead.');
+      }
+
+      final uid = const Uuid().v4();
+      final user = UserModel(
+        id: uid,
+        email: cleanEmail,
+        displayName: cleanName,
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+        streakDays: 1,
+      );
+
+      _currentUser = user;
+      await _storage.saveUser(user);
+      await _storage.setCurrentUserId(user.id);
+      await _storage.saveCredentials(
+        cleanEmail,
+        LocalStorageService.hashPassword(cleanPassword),
+        uid,
+      );
+
+      _isLoading = false;
+      notifyListeners();
+    } finally {
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
-
-    final mockUid = const Uuid().v4();
-    final user = UserModel(
-      id: mockUid,
-      email: email.trim(),
-      displayName: displayName.trim(),
-      createdAt: DateTime.now(),
-      lastLoginAt: DateTime.now(),
-      streakDays: 1,
-    );
-
-    _currentUser = user;
-    await _storage.saveUser(user);
-    await _storage.setCurrentUserId(user.id);
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> sendPasswordResetEmail(String email) async {
+    final cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty) throw Exception('Please enter your email address.');
+
     if (Firebase.apps.isNotEmpty) {
       try {
-        await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: cleanEmail);
         return;
+      } on FirebaseAuthException {
+        rethrow;
       } catch (_) {}
     }
-    // Simulation succeeded for offline
   }
 
   Future<void> updateGoals({

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/sync_model.dart';
 import '../../data/models/user_model.dart';
@@ -37,6 +38,61 @@ class LocalStorageService {
     } else {
       await _prefs.setString(_kCurrentUserId, userId);
     }
+  }
+
+  // --- Account Credentials (Secure password check) ---
+  static String hashPassword(String password) {
+    return sha256.convert(utf8.encode('isro_salt_2026_${password.trim()}')).toString();
+  }
+
+  String _credKey(String email) => 'cred_${email.trim().toLowerCase()}';
+
+  Future<void> saveCredentials(String email, String passwordHash, String userId) async {
+    final payload = {
+      'email': email.trim().toLowerCase(),
+      'passwordHash': passwordHash,
+      'userId': userId,
+    };
+    await _prefs.setString(_credKey(email), jsonEncode(payload));
+  }
+
+  bool hasAccount(String email) {
+    final clean = email.trim().toLowerCase();
+    if (clean == 'isro_aspirant@companion.edu') return true;
+    return _prefs.containsKey(_credKey(clean));
+  }
+
+  Map<String, String>? getCredentials(String email) {
+    final clean = email.trim().toLowerCase();
+    final raw = _prefs.getString(_credKey(clean));
+    if (raw != null) {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      return {
+        'email': map['email'] as String? ?? clean,
+        'passwordHash': map['passwordHash'] as String? ?? '',
+        'userId': map['userId'] as String? ?? '',
+      };
+    }
+    // Default seeded starter account
+    if (clean == 'isro_aspirant@companion.edu') {
+      return {
+        'email': clean,
+        'passwordHash': hashPassword('isro2026'),
+        'userId': 'starter_user_isro_aspirant',
+      };
+    }
+    return null;
+  }
+
+  String? verifyPassword(String email, String plainPassword) {
+    final creds = getCredentials(email);
+    if (creds == null) return null;
+    final expectedHash = creds['passwordHash'];
+    final computedHash = hashPassword(plainPassword);
+    if (expectedHash == computedHash) {
+      return creds['userId'];
+    }
+    return null;
   }
 
   // --- User Profile ---

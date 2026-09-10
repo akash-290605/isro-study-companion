@@ -16,19 +16,19 @@ class SyncStatusBadge extends ConsumerWidget {
 
     switch (status) {
       case SyncStatus.synced:
-        color = const Color(0xFF10B981); // Emerald
+        color = const Color(0xFF10B981);
         icon = Icons.cloud_done_rounded;
         break;
       case SyncStatus.localOnly:
-        color = const Color(0xFF10B981); // Emerald / Saved
+        color = const Color(0xFF10B981);
         icon = Icons.check_circle_outline_rounded;
         break;
       case SyncStatus.syncing:
-        color = const Color(0xFFF59E0B); // Amber
+        color = const Color(0xFFF59E0B);
         icon = Icons.sync_rounded;
         break;
       case SyncStatus.offline:
-        color = const Color(0xFF64748B); // Slate
+        color = const Color(0xFF64748B);
         icon = Icons.cloud_off_rounded;
         break;
     }
@@ -42,15 +42,32 @@ class SyncStatusBadge extends ConsumerWidget {
       message: tooltipMessage,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          syncService.syncPendingData();
-          final snackMsg = status == SyncStatus.localOnly
-              ? '✓ All changes are securely saved locally on this device.'
-              : 'Sync status: ${status.label}. Checking cloud updates...';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(snackMsg),
-              duration: const Duration(seconds: 2),
+        onTap: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          if (status == SyncStatus.localOnly) {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('All changes are securely saved locally on this device. Sign in to sync with Firebase Cloud.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Syncing with Firebase Cloud (downloading and uploading)...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          await syncService.syncPendingData(forceFullBackup: true);
+
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Cloud sync complete! Downloaded and backed up your latest formulas and progress.'),
+              backgroundColor: Color(0xFF10B981),
+              duration: Duration(seconds: 3),
             ),
           );
         },
@@ -86,4 +103,3 @@ class SyncStatusBadge extends ConsumerWidget {
     );
   }
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isro_study_companion/core/services/local_storage_service.dart';
+import 'package:isro_study_companion/core/services/sync_service.dart';
 import 'package:isro_study_companion/data/repositories/auth_repository.dart';
 
 void main() {
@@ -97,6 +98,23 @@ void main() {
         ),
         throwsA(isA<Exception>()),
       );
+    });
+
+    test('SyncService triggers onDataRestored to reload repositories', () async {
+      final syncService = SyncService(storage);
+      bool restoredCalled = false;
+      String? restoredUid;
+
+      syncService.onDataRestored = (uid) {
+        restoredCalled = true;
+        restoredUid = uid;
+      };
+
+      // Test cloud restore fallback when offline
+      await syncService.restoreFromCloud('test_user_123');
+
+      expect(restoredCalled, isTrue);
+      expect(restoredUid, 'test_user_123');
     });
   });
 }

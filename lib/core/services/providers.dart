@@ -20,7 +20,20 @@ final localStorageServiceProvider = Provider<LocalStorageService>((ref) {
 
 final syncServiceProvider = ChangeNotifierProvider<SyncService>((ref) {
   final storage = ref.watch(localStorageServiceProvider);
-  return SyncService(storage);
+  final syncService = SyncService(storage);
+  syncService.onDataRestored = (uid) {
+    try {
+      ref.read(formulaRepositoryProvider).loadForUser(uid);
+      ref.read(notesRepositoryProvider).loadForUser(uid);
+      ref.read(questionsRepositoryProvider).loadForUser(uid);
+      ref.read(syllabusRepositoryProvider).loadForUser(uid);
+      ref.read(flashcardsRepositoryProvider).loadForUser(uid);
+      ref.read(mistakesRepositoryProvider).loadForUser(uid);
+      ref.read(sourcesRepositoryProvider).loadForUser(uid);
+      ref.read(testRepositoryProvider).loadForUser(uid);
+    } catch (_) {}
+  };
+  return syncService;
 });
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);

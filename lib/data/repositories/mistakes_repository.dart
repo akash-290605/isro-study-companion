@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/services/local_storage_service.dart';
@@ -132,6 +134,16 @@ class MistakesRepository extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUserId!)
+            .collection('mistakes')
+            .doc(mistakeId)
+            .delete();
+      }
+    } catch (_) {}
     notifyListeners();
   }
 }

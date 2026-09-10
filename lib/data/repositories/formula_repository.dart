@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/services/local_storage_service.dart';
@@ -123,13 +125,48 @@ class FormulaRepository extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUserId!)
+            .collection('formulas')
+            .doc(formulaId)
+            .delete();
+      }
+    } catch (_) {}
     notifyListeners();
   }
 
   Future<void> clearAllFormulas() async {
     if (_currentUserId == null) return;
+    final toDelete = List<FormulaModel>.from(_formulas);
     _formulas.clear();
     await _storage.saveFormulas(_currentUserId!, _formulas);
+    for (final f in toDelete) {
+      await _storage.enqueueAction(
+        _currentUserId!,
+        QueuedActionModel(
+          actionId: const Uuid().v4(),
+          actionType: QueuedActionType.delete,
+          collectionName: 'formulas',
+          documentId: f.formulaId,
+          payload: {},
+          timestamp: DateTime.now(),
+        ),
+      );
+    }
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        final col = FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUserId!)
+            .collection('formulas');
+        for (final f in toDelete) {
+          col.doc(f.formulaId).delete();
+        }
+      }
+    } catch (_) {}
     notifyListeners();
   }
 }

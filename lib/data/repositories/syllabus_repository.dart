@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/starter_syllabus.dart';
@@ -281,6 +283,19 @@ class SyllabusRepository extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUserId!)
+            .collection('syllabus')
+            .doc('current_syllabus')
+            .set({
+              'updatedAt': DateTime.now().toIso8601String(),
+              'subjects': _subjects.map((s) => s.toJson()).toList(),
+            }, SetOptions(merge: true));
+      }
+    } catch (_) {}
   }
 }
 

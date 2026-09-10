@@ -90,6 +90,12 @@ class SyncService extends ChangeNotifier {
       final firestore = FirebaseFirestore.instance;
       final userDoc = firestore.collection('users').doc(uid);
 
+      final queue = _storage.getSyncQueue(uid);
+      final pendingDeletes = queue
+          .where((a) => a.actionType == QueuedActionType.delete)
+          .map((a) => '${a.collectionName}/${a.documentId}')
+          .toSet();
+
       // 1. User Profile
       try {
         final userSnapshot = await userDoc.get();
@@ -107,6 +113,7 @@ class SyncService extends ChangeNotifier {
         if (formulasSnap.docs.isNotEmpty) {
           final cloudFormulas = <FormulaModel>[];
           for (final doc in formulasSnap.docs) {
+            if (pendingDeletes.contains('formulas/${doc.id}')) continue;
             try {
               cloudFormulas.add(FormulaModel.fromJson(doc.data()));
             } catch (e) {
@@ -133,6 +140,7 @@ class SyncService extends ChangeNotifier {
         if (notesSnap.docs.isNotEmpty) {
           final cloudNotes = <NoteModel>[];
           for (final doc in notesSnap.docs) {
+            if (pendingDeletes.contains('notes/${doc.id}')) continue;
             try {
               cloudNotes.add(NoteModel.fromJson(doc.data()));
             } catch (e) {
@@ -159,6 +167,7 @@ class SyncService extends ChangeNotifier {
         if (questionsSnap.docs.isNotEmpty) {
           final cloudQuestions = <QuestionModel>[];
           for (final doc in questionsSnap.docs) {
+            if (pendingDeletes.contains('questions/${doc.id}')) continue;
             try {
               cloudQuestions.add(QuestionModel.fromJson(doc.data()));
             } catch (e) {
@@ -215,6 +224,7 @@ class SyncService extends ChangeNotifier {
         if (flashcardsSnap.docs.isNotEmpty) {
           final cloudFlashcards = <FlashcardModel>[];
           for (final doc in flashcardsSnap.docs) {
+            if (pendingDeletes.contains('flashcards/${doc.id}')) continue;
             try {
               cloudFlashcards.add(FlashcardModel.fromJson(doc.data()));
             } catch (e) {
@@ -241,6 +251,7 @@ class SyncService extends ChangeNotifier {
         if (mistakesSnap.docs.isNotEmpty) {
           final cloudMistakes = <MistakeModel>[];
           for (final doc in mistakesSnap.docs) {
+            if (pendingDeletes.contains('mistakes/${doc.id}')) continue;
             try {
               cloudMistakes.add(MistakeModel.fromJson(doc.data()));
             } catch (e) {
@@ -267,6 +278,7 @@ class SyncService extends ChangeNotifier {
         if (sourcesSnap.docs.isNotEmpty) {
           final cloudSources = <SourceDocumentModel>[];
           for (final doc in sourcesSnap.docs) {
+            if (pendingDeletes.contains('sources/${doc.id}')) continue;
             try {
               cloudSources.add(SourceDocumentModel.fromJson(doc.data()));
             } catch (e) {
@@ -422,13 +434,10 @@ class SyncService extends ChangeNotifier {
     _setStatus(SyncStatus.syncing);
 
     try {
-      // 1. Two-way sync: Download latest from Cloud Firestore first
-      await restoreFromCloud(fbUser.uid);
-
       final firestore = FirebaseFirestore.instance;
       final userDoc = firestore.collection('users').doc(fbUser.uid);
 
-      // 2. Process outgoing queued actions
+      // 1. Process outgoing queued actions FIRST (including deletes) so Firestore is up-to-date
       final queue = _storage.getSyncQueue(fbUser.uid);
       for (final action in List<QueuedActionModel>.from(queue)) {
         final docRef = userDoc.collection(action.collectionName).doc(action.documentId);
@@ -445,6 +454,9 @@ class SyncService extends ChangeNotifier {
 
         await _storage.removeQueuedAction(fbUser.uid, action.actionId);
       }
+
+      // 2. Download latest from Cloud Firestore
+      await restoreFromCloud(fbUser.uid);
 
       // 3. If full backup requested, push any local items to Firestore
       if (forceFullBackup) {

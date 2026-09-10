@@ -20,12 +20,9 @@ class SourcesRepository extends ChangeNotifier {
   void loadForUser(String userId) {
     _currentUserId = userId;
     _sources = _storage.getSources(userId);
-    // Purge any inbuilt/starter sources
-    final beforeCount = _sources.length;
-    _sources.removeWhere((s) => s.sourceId.startsWith('starter_doc_'));
-    if (_sources.length != beforeCount) {
-      _storage.saveSources(userId, _sources);
-    }
+    // Purge any inbuilt/starter sources and locally hidden items
+    final hidden = _storage.getHiddenItemIds(userId, 'sources');
+    _sources.removeWhere((s) => s.sourceId.startsWith('starter_doc_') || hidden.contains(s.sourceId));
     notifyListeners();
   }
 
@@ -235,32 +232,82 @@ class SourcesRepository extends ChangeNotifier {
     notifyListeners();
     return doc;
   }
-
-  Future<void> deleteSource(String sourceId) async {
+  Future<void> deleteSource(
+    String sourceId, {
+    bool permanent = true,
+    bool deleteAssociatedQuestions = false,
+    List<String>? associatedQuestionIds,
+  }) async {
     if (_currentUserId == null) return;
-    _sources.removeWhere((s) => s.sourceId == sourceId);
-    await _storage.saveSources(_currentUserId!, _sources);
-    await _storage.enqueueAction(
-      _currentUserId!,
-      QueuedActionModel(
-        actionId: const Uuid().v4(),
-        actionType: QueuedActionType.delete,
-        collectionName: 'sources',
-        documentId: sourceId,
-        payload: {},
-        timestamp: DateTime.now(),
-      ),
-    );
-    try {
-      if (Firebase.apps.isNotEmpty) {
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(_currentUserId!)
-            .collection('sources')
-            .doc(sourceId)
-            .delete();
+
+    if (permanent) {
+      _sources.removeWhere((s) => s.sourceId == sourceId);
+      await _storage.saveSources(_currentUserId!, _sources);
+      await _storage.enqueueAction(
+        _currentUserId!,
+        QueuedActionModel(
+          actionId: const Uuid().v4(),
+          actionType: QueuedActionType.delete,
+          collectionName: 'sources',
+          documentId: sourceId,
+          payload: {},
+          timestamp: DateTime.now(),
+        ),
+      );
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_currentUserId!)
+              .collection('sources')
+              .doc(sourceId)
+              .delete();
+        }
+      } catch (_) {}
+
+      if (deleteAssociatedQuestions && associatedQuestionIds != null && associatedQuestionIds.isNotEmpty) {
+        final localQuestions = _storage.getQuestions(_currentUserId!);
+        localQuestions.removeWhere((q) => associatedQuestionIds.contains(q.questionId));
+        await _storage.saveQuestions(_currentUserId!, localQuestions);
+
+        for (final qId in associatedQuestionIds) {
+          await _storage.enqueueAction(
+            _currentUserId!,
+            QueuedActionModel(
+              actionId: const Uuid().v4(),
+              actionType: QueuedActionType.delete,
+              collectionName: 'questions',
+              documentId: qId,
+              payload: {},
+              timestamp: DateTime.now(),
+            ),
+          );
+          try {
+            if (Firebase.apps.isNotEmpty) {
+              FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(_currentUserId!)
+                  .collection('questions')
+                  .doc(qId)
+                  .delete();
+            }
+          } catch (_) {}
+        }
       }
-    } catch (_) {}
+    } else {
+      await _storage.hideItemLocally(_currentUserId!, 'sources', sourceId);
+      _sources.removeWhere((s) => s.sourceId == sourceId);
+      await _storage.saveSources(_currentUserId!, _sources);
+
+      if (deleteAssociatedQuestions && associatedQuestionIds != null) {
+        for (final qId in associatedQuestionIds) {
+          await _storage.hideItemLocally(_currentUserId!, 'questions', qId);
+        }
+        final localQuestions = _storage.getQuestions(_currentUserId!);
+        localQuestions.removeWhere((q) => associatedQuestionIds.contains(q.questionId));
+        await _storage.saveQuestions(_currentUserId!, localQuestions);
+      }
+    }
     notifyListeners();
   }
 

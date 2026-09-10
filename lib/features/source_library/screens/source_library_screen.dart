@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/providers.dart';
+import '../../../core/widgets/delete_confirmation_dialog.dart';
 import '../../../data/models/source_model.dart';
 
 class SourceLibraryScreen extends ConsumerStatefulWidget {
@@ -14,6 +15,42 @@ class SourceLibraryScreen extends ConsumerStatefulWidget {
 class _SourceLibraryScreenState extends ConsumerState<SourceLibraryScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+
+  Future<void> _confirmDeleteSource(SourceDocumentModel doc) async {
+    final questionsRepo = ref.read(questionsRepositoryProvider);
+    final associatedQuestions = questionsRepo.questions.where((q) => q.sourceId == doc.sourceId).toList();
+
+    final result = await DeleteConfirmationDialog.show(
+      context: context,
+      itemType: 'Study Material',
+      itemName: doc.sourceName,
+      hasAssociatedQuestions: associatedQuestions.isNotEmpty,
+      associatedQuestionsCount: associatedQuestions.length,
+    );
+
+    if (result == null || !mounted) return;
+
+    final sourcesRepo = ref.read(sourcesRepositoryProvider);
+    await sourcesRepo.deleteSource(
+      doc.sourceId,
+      permanent: result.isPermanent,
+      deleteAssociatedQuestions: result.deleteAssociatedQuestions,
+      associatedQuestionIds: associatedQuestions.map((q) => q.questionId).toList(),
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.isPermanent
+                ? 'Permanently deleted "${doc.sourceName}" from cloud and device'
+                : 'Removed "${doc.sourceName}" from this device',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   void _showRenameDialog(SourceDocumentModel doc) {
     final nameCtrl = TextEditingController(text: doc.sourceName);
@@ -248,7 +285,7 @@ class _SourceLibraryScreenState extends ConsumerState<SourceLibraryScreen> {
                                           IconButton(
                                             tooltip: 'Delete Source',
                                             icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                            onPressed: () => sourcesRepo.deleteSource(doc.sourceId),
+                                            onPressed: () => _confirmDeleteSource(doc),
                                           ),
                                         ],
                                       ),

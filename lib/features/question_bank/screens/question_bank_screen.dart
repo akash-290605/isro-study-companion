@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/services/providers.dart';
 import '../../../core/utils/math_renderer.dart';
+import '../../../core/widgets/delete_confirmation_dialog.dart';
 import '../../../core/widgets/technical_diagram_widget.dart';
 import '../../../data/models/question_model.dart';
 import '../../../data/repositories/questions_repository.dart';
@@ -26,6 +27,32 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
   Difficulty? _selectedDifficulty;
   QuestionStatus? _selectedStatus;
   QuestionType? _selectedType;
+
+  Future<void> _confirmDeleteQuestion(QuestionModel q) async {
+    final result = await DeleteConfirmationDialog.show(
+      context: context,
+      itemType: 'Question',
+      itemName: q.questionText.length > 60 ? '${q.questionText.substring(0, 60)}...' : q.questionText,
+    );
+
+    if (result == null || !mounted) return;
+
+    final qRepo = ref.read(questionsRepositoryProvider);
+    await qRepo.deleteQuestion(q.questionId, permanent: result.isPermanent);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.isPermanent
+                ? 'Permanently deleted question from cloud and device'
+                : 'Removed question from this device',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -824,7 +851,7 @@ class _QuestionBankScreenState extends ConsumerState<QuestionBankScreen> {
                 IconButton(
                   tooltip: 'Delete Question',
                   icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
-                  onPressed: () => qRepo.deleteQuestion(q.questionId),
+                  onPressed: () => _confirmDeleteQuestion(q),
                 ),
               ],
             ),

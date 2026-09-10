@@ -388,5 +388,29 @@ class LocalStorageService {
     await _prefs.remove(_revisionsKey(uid));
     await _prefs.remove(_syncQueueKey(uid));
   }
+
+  // --- Locally Hidden Items (For local-only delete) ---
+  String _hiddenKey(String uid, String collectionName) => 'hidden_${uid}_$collectionName';
+
+  Set<String> getHiddenItemIds(String uid, String collectionName) {
+    final list = _prefs.getStringList(_hiddenKey(uid, collectionName)) ?? [];
+    return list.toSet();
+  }
+
+  Future<void> hideItemLocally(String uid, String collectionName, String id) async {
+    final set = getHiddenItemIds(uid, collectionName);
+    set.add(id);
+    await _prefs.setStringList(_hiddenKey(uid, collectionName), set.toList());
+  }
+
+  Future<void> unhideItemLocally(String uid, String collectionName, String id) async {
+    final set = getHiddenItemIds(uid, collectionName);
+    set.remove(id);
+    await _prefs.setStringList(_hiddenKey(uid, collectionName), set.toList());
+  }
+
+  bool isItemHiddenLocally(String uid, String collectionName, String id) {
+    return getHiddenItemIds(uid, collectionName).contains(id);
+  }
 }
 

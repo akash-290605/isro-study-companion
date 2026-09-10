@@ -35,7 +35,8 @@ class QuestionsRepository extends ChangeNotifier {
 
   void loadForUser(String userId) {
     _currentUserId = userId;
-    _questions = _storage.getQuestions(userId);
+    final hiddenQuestions = _storage.getHiddenItemIds(userId, 'questions');
+    _questions = _storage.getQuestions(userId).where((q) => !hiddenQuestions.contains(q.questionId)).toList();
     // Purge any inbuilt/starter questions and any corrupted document dumps
     final beforeCount = _questions.length;
     _questions.removeWhere((q) =>
@@ -281,38 +282,77 @@ class QuestionsRepository extends ChangeNotifier {
     await recordDetailedAttempt(questionId, isCorrect);
   }
 
-  Future<void> deleteQuestion(String questionId) async {
+  Future<void> deleteQuestion(String questionId, {bool permanent = true}) async {
     if (_currentUserId == null) return;
-    _questions.removeWhere((q) => q.questionId == questionId);
-    await _storage.saveQuestions(_currentUserId!, _questions);
-    await _storage.enqueueAction(
-      _currentUserId!,
-      QueuedActionModel(
-        actionId: const Uuid().v4(),
-        actionType: QueuedActionType.delete,
-        collectionName: 'questions',
-        documentId: questionId,
-        payload: {},
-        timestamp: DateTime.now(),
-      ),
-    );
-    try {
-      if (Firebase.apps.isNotEmpty) {
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(_currentUserId!)
-            .collection('questions')
-            .doc(questionId)
-            .delete();
-      }
-    } catch (_) {}
+    if (permanent) {
+      _questions.removeWhere((q) => q.questionId == questionId);
+      await _storage.saveQuestions(_currentUserId!, _questions);
+      await _storage.enqueueAction(
+        _currentUserId!,
+        QueuedActionModel(
+          actionId: const Uuid().v4(),
+          actionType: QueuedActionType.delete,
+          collectionName: 'questions',
+          documentId: questionId,
+          payload: {},
+          timestamp: DateTime.now(),
+        ),
+      );
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(_currentUserId!)
+              .collection('questions')
+              .doc(questionId)
+              .delete();
+        }
+      } catch (_) {}
+    } else {
+      await _storage.hideItemLocally(_currentUserId!, 'questions', questionId);
+      _questions.removeWhere((q) => q.questionId == questionId);
+      await _storage.saveQuestions(_currentUserId!, _questions);
+    }
     notifyListeners();
   }
 
-  Future<void> clearAllQuestions() async {
+  Future<void> clearAllQuestions({bool permanent = true}) async {
     if (_currentUserId == null) return;
-    _questions.clear();
-    await _storage.saveQuestions(_currentUserId!, _questions);
+    if (permanent) {
+      final toDelete = List<QuestionModel>.from(_questions);
+      _questions.clear();
+      await _storage.saveQuestions(_currentUserId!, _questions);
+      for (final q in toDelete) {
+        await _storage.enqueueAction(
+          _currentUserId!,
+          QueuedActionModel(
+            actionId: const Uuid().v4(),
+            actionType: QueuedActionType.delete,
+            collectionName: 'questions',
+            documentId: q.questionId,
+            payload: {},
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          final col = FirebaseFirestore.instance
+              .collection('users')
+              .doc(_currentUserId!)
+              .collection('questions');
+          for (final q in toDelete) {
+            col.doc(q.questionId).delete();
+          }
+        }
+      } catch (_) {}
+    } else {
+      for (final q in _questions) {
+        await _storage.hideItemLocally(_currentUserId!, 'questions', q.questionId);
+      }
+      _questions.clear();
+      await _storage.saveQuestions(_currentUserId!, _questions);
+    }
     notifyListeners();
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/services/providers.dart';
 import '../../../core/utils/math_renderer.dart';
+import '../../../core/widgets/delete_confirmation_dialog.dart';
 import '../../../data/models/formula_model.dart';
 
 class FormulaBankScreen extends ConsumerStatefulWidget {
@@ -17,6 +18,32 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
   String _searchQuery = '';
   String? _selectedSubject;
   bool _onlyFavorites = false;
+
+  Future<void> _confirmDeleteFormula(FormulaModel f) async {
+    final result = await DeleteConfirmationDialog.show(
+      context: context,
+      itemType: 'Formula',
+      itemName: f.title,
+    );
+
+    if (result == null || !mounted) return;
+
+    final formRepo = ref.read(formulaRepositoryProvider);
+    await formRepo.deleteFormula(f.formulaId, permanent: result.isPermanent);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.isPermanent
+                ? 'Permanently deleted "${f.title}" from cloud and device'
+                : 'Removed "${f.title}" from this device',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   Widget _buildMathChip(
     String code,
@@ -359,7 +386,7 @@ class _FormulaBankScreenState extends ConsumerState<FormulaBankScreen> {
                                     IconButton(
                                       tooltip: 'Delete',
                                       icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
-                                      onPressed: () => formRepo.deleteFormula(f.formulaId),
+                                      onPressed: () => _confirmDeleteFormula(f),
                                     ),
                                   ],
                                 ),

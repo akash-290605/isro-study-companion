@@ -96,6 +96,12 @@ class SyncService extends ChangeNotifier {
           .map((a) => '${a.collectionName}/${a.documentId}')
           .toSet();
 
+      bool shouldSkip(String collection, String id) {
+        if (pendingDeletes.contains('$collection/$id')) return true;
+        if (_storage.isItemHiddenLocally(uid, collection, id)) return true;
+        return false;
+      }
+
       // 1. User Profile
       try {
         final userSnapshot = await userDoc.get();
@@ -113,7 +119,7 @@ class SyncService extends ChangeNotifier {
         if (formulasSnap.docs.isNotEmpty) {
           final cloudFormulas = <FormulaModel>[];
           for (final doc in formulasSnap.docs) {
-            if (pendingDeletes.contains('formulas/${doc.id}')) continue;
+            if (shouldSkip('formulas', doc.id)) continue;
             try {
               cloudFormulas.add(FormulaModel.fromJson(doc.data()));
             } catch (e) {
@@ -140,7 +146,7 @@ class SyncService extends ChangeNotifier {
         if (notesSnap.docs.isNotEmpty) {
           final cloudNotes = <NoteModel>[];
           for (final doc in notesSnap.docs) {
-            if (pendingDeletes.contains('notes/${doc.id}')) continue;
+            if (shouldSkip('notes', doc.id)) continue;
             try {
               cloudNotes.add(NoteModel.fromJson(doc.data()));
             } catch (e) {
@@ -167,7 +173,7 @@ class SyncService extends ChangeNotifier {
         if (questionsSnap.docs.isNotEmpty) {
           final cloudQuestions = <QuestionModel>[];
           for (final doc in questionsSnap.docs) {
-            if (pendingDeletes.contains('questions/${doc.id}')) continue;
+            if (shouldSkip('questions', doc.id)) continue;
             try {
               cloudQuestions.add(QuestionModel.fromJson(doc.data()));
             } catch (e) {
@@ -224,7 +230,7 @@ class SyncService extends ChangeNotifier {
         if (flashcardsSnap.docs.isNotEmpty) {
           final cloudFlashcards = <FlashcardModel>[];
           for (final doc in flashcardsSnap.docs) {
-            if (pendingDeletes.contains('flashcards/${doc.id}')) continue;
+            if (shouldSkip('flashcards', doc.id)) continue;
             try {
               cloudFlashcards.add(FlashcardModel.fromJson(doc.data()));
             } catch (e) {
@@ -251,7 +257,7 @@ class SyncService extends ChangeNotifier {
         if (mistakesSnap.docs.isNotEmpty) {
           final cloudMistakes = <MistakeModel>[];
           for (final doc in mistakesSnap.docs) {
-            if (pendingDeletes.contains('mistakes/${doc.id}')) continue;
+            if (shouldSkip('mistakes', doc.id)) continue;
             try {
               cloudMistakes.add(MistakeModel.fromJson(doc.data()));
             } catch (e) {
@@ -278,7 +284,7 @@ class SyncService extends ChangeNotifier {
         if (sourcesSnap.docs.isNotEmpty) {
           final cloudSources = <SourceDocumentModel>[];
           for (final doc in sourcesSnap.docs) {
-            if (pendingDeletes.contains('sources/${doc.id}')) continue;
+            if (shouldSkip('sources', doc.id)) continue;
             try {
               cloudSources.add(SourceDocumentModel.fromJson(doc.data()));
             } catch (e) {

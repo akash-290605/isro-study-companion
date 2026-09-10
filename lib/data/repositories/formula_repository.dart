@@ -17,7 +17,8 @@ class FormulaRepository extends ChangeNotifier {
 
   void loadForUser(String userId) {
     _currentUserId = userId;
-    _formulas = _storage.getFormulas(userId);
+    final hiddenFormulas = _storage.getHiddenItemIds(userId, 'formulas');
+    _formulas = _storage.getFormulas(userId).where((f) => !hiddenFormulas.contains(f.formulaId)).toList();
     // Purge any inbuilt/starter formulas
     final beforeCount = _formulas.length;
     _formulas.removeWhere((f) =>
@@ -110,63 +111,77 @@ class FormulaRepository extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteFormula(String formulaId) async {
+  Future<void> deleteFormula(String formulaId, {bool permanent = true}) async {
     if (_currentUserId == null) return;
-    _formulas.removeWhere((f) => f.formulaId == formulaId);
-    await _storage.saveFormulas(_currentUserId!, _formulas);
-    await _storage.enqueueAction(
-      _currentUserId!,
-      QueuedActionModel(
-        actionId: const Uuid().v4(),
-        actionType: QueuedActionType.delete,
-        collectionName: 'formulas',
-        documentId: formulaId,
-        payload: {},
-        timestamp: DateTime.now(),
-      ),
-    );
-    try {
-      if (Firebase.apps.isNotEmpty) {
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(_currentUserId!)
-            .collection('formulas')
-            .doc(formulaId)
-            .delete();
-      }
-    } catch (_) {}
-    notifyListeners();
-  }
-
-  Future<void> clearAllFormulas() async {
-    if (_currentUserId == null) return;
-    final toDelete = List<FormulaModel>.from(_formulas);
-    _formulas.clear();
-    await _storage.saveFormulas(_currentUserId!, _formulas);
-    for (final f in toDelete) {
+    if (permanent) {
+      _formulas.removeWhere((f) => f.formulaId == formulaId);
+      await _storage.saveFormulas(_currentUserId!, _formulas);
       await _storage.enqueueAction(
         _currentUserId!,
         QueuedActionModel(
           actionId: const Uuid().v4(),
           actionType: QueuedActionType.delete,
           collectionName: 'formulas',
-          documentId: f.formulaId,
+          documentId: formulaId,
           payload: {},
           timestamp: DateTime.now(),
         ),
       );
-    }
-    try {
-      if (Firebase.apps.isNotEmpty) {
-        final col = FirebaseFirestore.instance
-            .collection('users')
-            .doc(_currentUserId!)
-            .collection('formulas');
-        for (final f in toDelete) {
-          col.doc(f.formulaId).delete();
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(_currentUserId!)
+              .collection('formulas')
+              .doc(formulaId)
+              .delete();
         }
+      } catch (_) {}
+    } else {
+      await _storage.hideItemLocally(_currentUserId!, 'formulas', formulaId);
+      _formulas.removeWhere((f) => f.formulaId == formulaId);
+      await _storage.saveFormulas(_currentUserId!, _formulas);
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearAllFormulas({bool permanent = true}) async {
+    if (_currentUserId == null) return;
+    if (permanent) {
+      final toDelete = List<FormulaModel>.from(_formulas);
+      _formulas.clear();
+      await _storage.saveFormulas(_currentUserId!, _formulas);
+      for (final f in toDelete) {
+        await _storage.enqueueAction(
+          _currentUserId!,
+          QueuedActionModel(
+            actionId: const Uuid().v4(),
+            actionType: QueuedActionType.delete,
+            collectionName: 'formulas',
+            documentId: f.formulaId,
+            payload: {},
+            timestamp: DateTime.now(),
+          ),
+        );
       }
-    } catch (_) {}
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          final col = FirebaseFirestore.instance
+              .collection('users')
+              .doc(_currentUserId!)
+              .collection('formulas');
+          for (final f in toDelete) {
+            col.doc(f.formulaId).delete();
+          }
+        }
+      } catch (_) {}
+    } else {
+      for (final f in _formulas) {
+        await _storage.hideItemLocally(_currentUserId!, 'formulas', f.formulaId);
+      }
+      _formulas.clear();
+      await _storage.saveFormulas(_currentUserId!, _formulas);
+    }
     notifyListeners();
   }
 }

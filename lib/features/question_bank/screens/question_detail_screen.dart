@@ -11,6 +11,7 @@ import '../../../data/datasources/ai_answer_search_service.dart';
 import '../../../data/datasources/ai_solution_evaluator_service.dart';
 import '../../../data/datasources/smart_question_generator_service.dart';
 import '../../../data/models/question_model.dart';
+import '../../../core/widgets/delete_confirmation_dialog.dart';
 import '../widgets/edit_solution_dialog.dart';
 
 class QuestionDetailScreen extends ConsumerStatefulWidget {
@@ -443,23 +444,13 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
             icon: const Icon(Icons.delete_outline, color: Colors.red),
             onPressed: () async {
               final navigator = GoRouter.of(context);
-              final confirmed = await showDialog<bool>(
+              final result = await DeleteConfirmationDialog.show(
                 context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Delete Question?'),
-                  content: const Text('Are you sure you want to remove this question from your Question Bank?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Delete'),
-                    ),
-                  ],
-                ),
+                itemType: 'Question',
+                itemName: q.questionText.length > 60 ? '${q.questionText.substring(0, 60)}...' : q.questionText,
               );
-              if (confirmed == true && mounted) {
-                await qRepo.deleteQuestion(q.questionId);
+              if (result != null && mounted) {
+                await qRepo.deleteQuestion(q.questionId, permanent: result.isPermanent);
                 navigator.go('/question-bank');
               }
             },
